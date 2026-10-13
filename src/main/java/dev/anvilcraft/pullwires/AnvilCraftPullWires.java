@@ -9,6 +9,7 @@ import dev.anvilcraft.pullwires.data.AddonDatagen;
 import dev.anvilcraft.pullwires.init.AddonBlocks;
 import dev.anvilcraft.pullwires.init.AddonItemGroups;
 import dev.anvilcraft.pullwires.init.AddonItems;
+import dev.anvilcraft.pullwires.network.AddonNetwork;
 import dev.anvilcraft.pullwires.power.link.PowerLinkConnectivityChecker;
 import dev.dubhe.anvilcraft.api.power.ConnectivityChecker;
 import net.minecraft.resources.ResourceLocation;
@@ -29,6 +30,7 @@ public class AnvilCraftPullWires {
         // 三段范围判定必须在任何电网操作之前注册；它能覆盖本体对输电杆的既有判定。
         ConnectivityChecker.register(PowerLinkConnectivityChecker.INSTANCE);
         NeoForge.EVENT_BUS.addListener(AddonCommands::register);
+        modEventBus.addListener(AddonNetwork::register);
 
         AddonItemGroups.register(modEventBus);
         AddonBlocks.register();

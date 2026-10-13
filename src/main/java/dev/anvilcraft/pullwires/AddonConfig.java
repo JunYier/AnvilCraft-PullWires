@@ -25,6 +25,25 @@ public class AddonConfig {
 
         @Comment(
             """
+            Controls the maximum straight-line distance of a manual connection (in blocks)
+            Measured between the top segments of the two poles, not between bounding boxes
+            The default equals twice the default autoConnectRange
+            """
+        )
+        @BoundedDiscrete(min = 1, max = 256)
+        public int manualConnectRange = 32;
+
+        @Comment(
+            """
+            Controls when a pending manual connection is dropped (multiplier of manualConnectRange)
+            Once the aim goes beyond manualConnectRange * this value, the pending state is cleared
+            """
+        )
+        @BoundedDiscrete(min = 1.0, max = 8.0)
+        public double cancelDistanceMultiplier = 2.0;
+
+        @Comment(
+            """
             Controls the settlement priority of newly placed Transmission Poles (0-15)
             Lower priority is more generous: it gives power away earlier and is served later
             """
