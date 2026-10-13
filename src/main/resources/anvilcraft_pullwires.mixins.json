@@ -6,6 +6,7 @@
   "mixins": [
   ],
   "client": [
+    "client.SimplePowerGridMixin"
   ],
   "injectors": {
     "defaultRequire": 1
