@@ -51,10 +51,10 @@ lombok {
     version = "1.18.34"
 }
 
-// M1 视觉算法的独立验证入口：算法本身是纯 Java 的，不依赖游戏与 JUnit。
-tasks.register('verifyLineLayout', JavaExec) {
+// 纯逻辑自检入口：这些算法都不依赖游戏运行环境，用一个 JavaExec 跑普通 main 即可。
+tasks.register('verifyAddon', JavaExec) {
     group = 'verification'
-    description = '运行电网连线「最简闭合图形」算法的自检'
+    description = '运行电压连线布局、三段范围判定等纯逻辑自检'
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'dev.anvilcraft.pullwires.power.line.PowerLineLayoutSelfCheck'
+    mainClass = 'dev.anvilcraft.pullwires.SelfChecks'
 }

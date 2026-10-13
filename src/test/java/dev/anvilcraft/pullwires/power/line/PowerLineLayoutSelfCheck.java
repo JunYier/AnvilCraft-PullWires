@@ -18,6 +18,14 @@ public final class PowerLineLayoutSelfCheck {
     }
 
     public static void main(String[] args) {
+        System.exit(run() == 0 ? 0 : 1);
+    }
+
+    /** @return 失败的断言数，0 表示全部通过 */
+    public static int run() {
+        assertions = 0;
+        FAILURES.clear();
+
         square();
         hexagon();
         japaneseCharacterRi();
@@ -26,13 +34,13 @@ public final class PowerLineLayoutSelfCheck {
         disconnectedClusters();
 
         if (FAILURES.isEmpty()) {
-            System.out.println("[pullwires] PowerLineLayout self-check passed (" + assertions + " assertions)");
-            return;
+            System.out.println("[pullwires] PowerLineLayout ok (" + assertions + " assertions)");
+            return 0;
         }
-        FAILURES.forEach(failure -> System.out.println("[pullwires] FAIL " + failure));
-        System.out.println("[pullwires] PowerLineLayout self-check FAILED: "
+        FAILURES.forEach(failure -> System.out.println("[pullwires] FAIL PowerLineLayout: " + failure));
+        System.out.println("[pullwires] PowerLineLayout FAILED: "
                            + FAILURES.size() + " of " + assertions + " assertions");
-        System.exit(1);
+        return FAILURES.size();
     }
 
     /** AC1.1：四根杆组成方形时只画「口」，不能出现对角线。 */

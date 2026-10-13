@@ -1,18 +1,25 @@
 package dev.anvilcraft.pullwires;
 
 import dev.anvilcraft.lib.v2.config.BoundedDiscrete;
+import dev.anvilcraft.lib.v2.config.CollapsibleObject;
 import dev.anvilcraft.lib.v2.config.Comment;
 import dev.anvilcraft.lib.v2.config.Config;
 
 @Config(name = AnvilCraftPullWires.MOD_ID)
 public class AddonConfig {
-    @Comment("Whether to log the dirt block on common setup")
-    public boolean logDirtBlock = false;
+    @Comment("Adjusts settings related to power grid links")
+    @CollapsibleObject
+    public PowerLink powerLink = new PowerLink();
 
-    @Comment("A magic number")
-    @BoundedDiscrete(max = 24, min = 2)
-    public int magicNumber = 2;
-
-    @Comment("What you want the introduction message to be for the magic number")
-    public String magicNumberIntroduction = "";
+    public static class PowerLink {
+        @Comment(
+            """
+            Controls the auto-connect range of Transmission Poles (in blocks)
+            Poles within this range join the same grid, but this range does NOT supply power:
+            generators, consumers and storages still only join by the pole's own range
+            """
+        )
+        @BoundedDiscrete(min = 1, max = 128)
+        public int autoConnectRange = 16;
+    }
 }

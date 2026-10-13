@@ -4,6 +4,7 @@
   "package": "dev.anvilcraft.pullwires.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "PowerGridMixin"
   ],
   "client": [
     "client.SimplePowerGridMixin"
