@@ -13,6 +13,9 @@ out/
 # JIRA plugin
 atlassian-ide-plugin.xml
 
+# Ecilipse
+.eclipse/*
+
 # VSCode
 .vscode/*
 !.vscode/settings.json
