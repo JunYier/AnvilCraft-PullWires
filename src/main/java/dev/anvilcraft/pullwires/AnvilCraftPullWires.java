@@ -1,0 +1,34 @@
+package dev.anvilcraft.pullwires;
+
+import com.mojang.logging.LogUtils;
+
+import dev.anvilcraft.lib.v2.config.ConfigManager;
+import dev.anvilcraft.lib.v2.registrum.Registrum;
+import dev.anvilcraft.pullwires.data.AddonDatagen;
+import dev.anvilcraft.pullwires.init.AddonBlocks;
+import dev.anvilcraft.pullwires.init.AddonItemGroups;
+import dev.anvilcraft.pullwires.init.AddonItems;
+import net.minecraft.resources.ResourceLocation;
+import net.neoforged.bus.api.IEventBus;
+import net.neoforged.fml.ModContainer;
+import net.neoforged.fml.common.Mod;
+import org.slf4j.Logger;
+
+@Mod(AnvilCraftPullWires.MOD_ID)
+public class AnvilCraftPullWires {
+    public static final String MOD_ID = "anvilcraft_addon_template";
+    public static final Logger LOGGER = LogUtils.getLogger();
+    public static final AddonConfig CONFIG = ConfigManager.register(AnvilCraftPullWires.MOD_ID, AddonConfig::new);
+    public static final Registrum REGISTRUM = Registrum.create(MOD_ID);
+
+    public AnvilCraftPullWires(IEventBus modEventBus, ModContainer modContainer) {
+        AddonItemGroups.register(modEventBus);
+        AddonBlocks.register();
+        AddonItems.register();
+        AddonDatagen.init();
+    }
+
+    public static ResourceLocation of(String path) {
+        return ResourceLocation.fromNamespaceAndPath(MOD_ID, path);
+    }
+}

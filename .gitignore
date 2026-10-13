@@ -13,6 +13,13 @@ out/
 # JIRA plugin
 atlassian-ide-plugin.xml
 
+# VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
 # Compiled class file
 *.class
 

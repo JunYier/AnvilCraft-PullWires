@@ -1,0 +1,93 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Client",
+      "presentation": {
+        "group": "Mod Development - anvilcraft_pullwires-neoforge",
+        "order": 0
+      },
+      "projectName": "anvilcraft_pullwires-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\build\\moddev\\clientRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\build\\moddev\\clientRunVmArgs.txt",
+        "-Dfml.modFolders\u003danvilcraft_pullwires%%D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Data",
+      "presentation": {
+        "group": "Mod Development - anvilcraft_pullwires-neoforge",
+        "order": 1
+      },
+      "projectName": "anvilcraft_pullwires-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\build\\moddev\\dataRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\build\\moddev\\dataRunVmArgs.txt",
+        "-Dfml.modFolders\u003danvilcraft_pullwires%%D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "GameTestServer",
+      "presentation": {
+        "group": "Mod Development - anvilcraft_pullwires-neoforge",
+        "order": 2
+      },
+      "projectName": "anvilcraft_pullwires-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\build\\moddev\\gameTestServerRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\build\\moddev\\gameTestServerRunVmArgs.txt",
+        "-Dfml.modFolders\u003danvilcraft_pullwires%%D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    },
+    {
+      "type": "java",
+      "request": "launch",
+      "name": "Server",
+      "presentation": {
+        "group": "Mod Development - anvilcraft_pullwires-neoforge",
+        "order": 3
+      },
+      "projectName": "anvilcraft_pullwires-neoforge",
+      "mainClass": "net.neoforged.devlaunch.Main",
+      "args": [
+        "@D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\build\\moddev\\serverRunProgramArgs.txt"
+      ],
+      "vmArgs": [
+        "@D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\build\\moddev\\serverRunVmArgs.txt",
+        "-Dfml.modFolders\u003danvilcraft_pullwires%%D:\\DSH\\AnvilCraftWire\\AnvilCraft-PullWires\\bin\\main"
+      ],
+      "cwd": "${workspaceFolder}\\run",
+      "env": {},
+      "console": "internalConsole",
+      "shortenCommandLine": "none"
+    }
+  ]
+}
