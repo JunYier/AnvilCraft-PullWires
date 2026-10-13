@@ -55,6 +55,27 @@ public final class PowerLinkRule {
     }
 
     /**
+     * 视觉连线用的包围盒相交判定，语义与本体 {@code SimplePowerGrid#isOverlap} 完全一致：
+     * 各轴半宽为 {@code range + 0.5}，仅接触（相切）不算相交。
+     *
+     * <p><b>这里必须传「连接范围」而不是「供电范围」。</b>供电范围只决定用电器能否接入，
+     * 杆与杆之间的组网靠的是更大的连接范围；若视觉层误用供电范围，
+     * 就会出现「电网明明连上了、线却不画」——而且只在杆数超过 2 时暴露，
+     * 因为恰好两根杆走的是本体「无条件连一条」的特例。</p>
+     */
+    public static boolean visualLinkOverlap(
+        double ax, double ay, double az, int rangeA,
+        double bx, double by, double bz, int rangeB
+    ) {
+        return ax - rangeA - 0.5 < bx + rangeB + 0.5
+               && ax + rangeA + 0.5 > bx - rangeB - 0.5
+               && ay - rangeA - 0.5 < by + rangeB + 0.5
+               && ay + rangeA + 0.5 > by - rangeB - 0.5
+               && az - rangeA - 0.5 < bz + rangeB + 0.5
+               && az + rangeA + 0.5 > bz - rangeB - 0.5;
+    }
+
+    /**
      * 判断一根输电杆能否并入既有电网。
      *
      * @param candidateSupply 候选杆的供电框

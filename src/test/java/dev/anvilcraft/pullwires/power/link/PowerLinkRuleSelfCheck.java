@@ -1,5 +1,7 @@
 package dev.anvilcraft.pullwires.power.link;
 
+import dev.anvilcraft.pullwires.power.line.PowerLineLayout;
+
 import java.util.List;
 
 /**
@@ -8,8 +10,10 @@ import java.util.List;
  * <p>固定使用文档中的默认值：供电范围 8（框边长 17）、自动连接范围 16（框边长 33）。</p>
  */
 public final class PowerLinkRuleSelfCheck {
-    private static final double SUPPLY_SIZE = 8 * 2 + 1;
-    private static final double LINK_SIZE = 16 * 2 + 1;
+    private static final int SUPPLY_RANGE = 8;
+    private static final int LINK_RANGE = 16;
+    private static final double SUPPLY_SIZE = SUPPLY_RANGE * 2 + 1;
+    private static final double LINK_SIZE = LINK_RANGE * 2 + 1;
 
     private PowerLinkRuleSelfCheck() {
     }
@@ -106,12 +110,54 @@ public final class PowerLinkRuleSelfCheck {
             System.out.println("[pullwires] FAIL 供电范围为 0 时应取配置值");
         }
 
+        // 回归：视觉连线必须按「连接范围」过滤，不能按「供电范围」。
+        // 相距 32 的两根杆在连接范围 16 下相连（33 > 32），在供电范围 8 下不相连（17 < 32）。
+        assertions++;
+        if (!PowerLinkRule.visualLinkOverlap(0, 0, 0, 16, 32, 0, 0, 16)) {
+            failures++;
+            System.out.println("[pullwires] FAIL 连接范围下相距 32 的杆应当有连线");
+        }
+        assertions++;
+        if (PowerLinkRule.visualLinkOverlap(0, 0, 0, 8, 32, 0, 0, 8)) {
+            failures++;
+            System.out.println("[pullwires] FAIL 供电范围下相距 32 的杆不应相连（这条正是曾经用错范围的原因）");
+        }
+        // 边界：恰好 33 时半宽相切，不算相交。
+        assertions++;
+        if (PowerLinkRule.visualLinkOverlap(0, 0, 0, 16, 33, 0, 0, 16)) {
+            failures++;
+            System.out.println("[pullwires] FAIL 恰好相切不应判定为相交");
+        }
+
+        // 端到端复现报告的场景：A—B 相距 32，C 在 A 侧面 16 格处。
+        // 加入 C 之后 A—B 的连线必须仍然存在（修复前会因为误用供电范围而消失）。
+        assertions++;
+        if (!layoutKeepsFarPair()) {
+            failures++;
+            System.out.println("[pullwires] FAIL 加入第三根杆后，A—B 的连线不应消失");
+        }
+
         if (failures == 0) {
             System.out.println("[pullwires] PowerLinkRule ok (" + assertions + " assertions)");
         } else {
             System.out.println("[pullwires] PowerLinkRule FAILED: " + failures + "/" + assertions);
         }
         return failures;
+    }
+
+    /** 端到端复现报告的场景：A(0,0) 与 B(32,0) 相距 32，C(0,16) 贴在 A 侧面。 */
+    private static boolean layoutKeepsFarPair() {
+        List<PowerLineLayout.Point2> points = List.of(
+            new PowerLineLayout.Point2(0, 0),
+            new PowerLineLayout.Point2(32, 0),
+            new PowerLineLayout.Point2(0, 16)
+        );
+        List<PowerLineLayout.Edge> edges = PowerLineLayout.layout(points, (first, second) ->
+            PowerLinkRule.visualLinkOverlap(
+                points.get(first).x(), 0, points.get(first).z(), LINK_RANGE,
+                points.get(second).x(), 0, points.get(second).z(), LINK_RANGE
+            ));
+        return edges.contains(new PowerLineLayout.Edge(0, 1));
     }
 
     private static PowerLinkRule.Box supply(double offset) {
