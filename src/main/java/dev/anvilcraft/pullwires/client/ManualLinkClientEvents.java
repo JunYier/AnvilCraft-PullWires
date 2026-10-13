@@ -26,6 +26,7 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -150,7 +151,7 @@ public class ManualLinkClientEvents {
         if (links.isEmpty()) return;
 
         PoseStack pose = event.getPoseStack();
-        MultiBufferSource.BufferSource buffers = event.getLevelRenderer().renderBuffers.bufferSource();
+        MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         Vec3 camera = event.getCamera().getPosition();
         VertexConsumer consumer = buffers.getBuffer(RenderType.LINES);
         for (LinkDefinition definition : links) {
@@ -161,5 +162,11 @@ public class ManualLinkClientEvents {
                 .render(pose, consumer, camera, Constant.TRANSMITTER_LINE_COLOR);
         }
         buffers.endBatch();
+    }
+
+    /** 客户端侧状态是静态的，退出服务器时必须清掉，否则会把上一局的链路带到下一个世界。 */
+    @SubscribeEvent
+    public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+        ManualLinkClientState.clear();
     }
 }

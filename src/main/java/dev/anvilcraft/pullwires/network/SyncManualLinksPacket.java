@@ -7,6 +7,7 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -29,7 +30,7 @@ public record SyncManualLinksPacket(CompoundTag data) implements CustomPacketPay
     public static final CustomPacketPayload.Type<SyncManualLinksPacket> TYPE =
         new CustomPacketPayload.Type<>(AnvilCraftPullWires.of("sync_manual_links"));
 
-    public static final StreamCodec<ByteBuf, SyncManualLinksPacket> STREAM_CODEC = StreamCodec.of(
+    public static final StreamCodec<FriendlyByteBuf, SyncManualLinksPacket> STREAM_CODEC = StreamCodec.of(
         (buffer, packet) -> buffer.writeNbt(packet.data()),
         buffer -> new SyncManualLinksPacket(Objects.requireNonNullElseGet(buffer.readNbt(), CompoundTag::new))
     );
