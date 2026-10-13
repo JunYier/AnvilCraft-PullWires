@@ -4,6 +4,7 @@ import dev.anvilcraft.lib.v2.config.BoundedDiscrete;
 import dev.anvilcraft.lib.v2.config.CollapsibleObject;
 import dev.anvilcraft.lib.v2.config.Comment;
 import dev.anvilcraft.lib.v2.config.Config;
+import dev.anvilcraft.pullwires.power.link.PolePriority;
 
 @Config(name = AnvilCraftPullWires.MOD_ID)
 public class AddonConfig {
@@ -21,5 +22,14 @@ public class AddonConfig {
         )
         @BoundedDiscrete(min = 1, max = 128)
         public int autoConnectRange = 16;
+
+        @Comment(
+            """
+            Controls the settlement priority of newly placed Transmission Poles (0-15)
+            Lower priority is more generous: it gives power away earlier and is served later
+            """
+        )
+        @BoundedDiscrete(min = PolePriority.MIN, max = PolePriority.MAX)
+        public int poleDefaultPriority = PolePriority.DEFAULT;
     }
 }

@@ -1,0 +1,22 @@
+{
+  "command.anvilcraft_pullwires.prefix": "[拉电线] ",
+  "command.anvilcraft_pullwires.link.created": "已建立连接：",
+  "command.anvilcraft_pullwires.link.line": "主端 %s - %s -> %s",
+  "command.anvilcraft_pullwires.list.empty": "当前没有任何线路",
+  "command.anvilcraft_pullwires.list.header": "当前共 %s 条线路",
+  "command.anvilcraft_pullwires.list.line": "- %s | 主端 %s - %s %s-> %s",
+  "command.anvilcraft_pullwires.unlink.removed": "已断开 %s 条线路",
+  "command.anvilcraft_pullwires.unlink.none": "这两根杆之间没有线路",
+  "command.anvilcraft_pullwires.clear.done": "已清空 %s 条线路",
+  "command.anvilcraft_pullwires.error.no_pole": "在给定坐标附近没有找到输电杆的顶段，请对准杆的任意一段",
+  "command.anvilcraft_pullwires.error.same_pole": "不能把一根杆连到它自己",
+  "command.anvilcraft_pullwires.pole": "%s[%s]",
+  "command.anvilcraft_pullwires.coords": "%s, %s, %s",
+  "command.anvilcraft_pullwires.state.active": "活跃",
+  "command.anvilcraft_pullwires.state.inactive": "未接入",
+  "command.anvilcraft_pullwires.state.suspended": "已挂起",
+  "command.anvilcraft_pullwires.state.pending": "待批准",
+  "dimension.minecraft.overworld": "主世界",
+  "dimension.minecraft.the_nether": "下界",
+  "dimension.minecraft.the_end": "末地"
+}

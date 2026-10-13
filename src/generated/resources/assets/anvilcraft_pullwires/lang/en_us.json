@@ -3,6 +3,8 @@
   "anvilcraft_pullwires.configuration.power_link.auto_connect_range": "Auto Connect Range",
   "anvilcraft_pullwires.configuration.power_link.auto_connect_range.tooltip": "Controls the auto-connect range of Transmission Poles (in blocks)\nPoles within this range join the same grid, but this range does NOT supply power:\ngenerators, consumers and storages still only join by the pole's own range\n",
   "anvilcraft_pullwires.configuration.power_link.button": "Power Link",
+  "anvilcraft_pullwires.configuration.power_link.pole_default_priority": "Pole Default Priority",
+  "anvilcraft_pullwires.configuration.power_link.pole_default_priority.tooltip": "Controls the settlement priority of newly placed Transmission Poles (0-15)\nLower priority is more generous: it gives power away earlier and is served later\n",
   "anvilcraft_pullwires.configuration.power_link.tooltip": "Adjusts settings related to power grid links",
   "anvilcraft_pullwires.configuration.section.anvilcraft.pullwires.common.toml": "Anvilcraft Pullwires Common Configuration",
   "anvilcraft_pullwires.configuration.section.anvilcraft.pullwires.common.toml.title": "Anvilcraft Pullwires Common Configuration",

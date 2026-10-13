@@ -4,6 +4,8 @@
   "package": "dev.anvilcraft.pullwires.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "PowerGridFlushMixin",
+    "PowerGridManagerTickMixin",
     "PowerGridMixin"
   ],
   "client": [
