@@ -10,11 +10,6 @@ public class AddonBlocks {
         REGISTRUM.defaultCreativeTab(AddonItemGroups.ADDON_ITEMS.getKey());
     }
 
-    public static final BlockEntry<Block> EXAMPLE_BLOCK = REGISTRUM
-            .block("example_block", Block::new)
-            .simpleItem()
-            .register();
-
     public static void register() {
     }
 }

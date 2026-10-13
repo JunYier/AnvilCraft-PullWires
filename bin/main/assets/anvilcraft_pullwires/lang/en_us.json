@@ -1,0 +1,12 @@
+{
+  "anvilcraft_pullwires.configuration.log_dirt_block": "Log Dirt Block",
+  "anvilcraft_pullwires.configuration.log_dirt_block.tooltip": "Whether to log the dirt block on common setup",
+  "anvilcraft_pullwires.configuration.magic_number": "Magic Number",
+  "anvilcraft_pullwires.configuration.magic_number.tooltip": "A magic number",
+  "anvilcraft_pullwires.configuration.magic_number_introduction": "Magic Number Introduction",
+  "anvilcraft_pullwires.configuration.magic_number_introduction.tooltip": "What you want the introduction message to be for the magic number",
+  "anvilcraft_pullwires.configuration.section.anvilcraft.pullwires.common.toml": "Anvilcraft Pullwires Common Configuration",
+  "anvilcraft_pullwires.configuration.section.anvilcraft.pullwires.common.toml.title": "Anvilcraft Pullwires Common Configuration",
+  "anvilcraft_pullwires.configuration.title": "Anvilcraft Pullwires Configuration",
+  "itemGroup.anvilcraft_pullwires.addon_items": "AnvilCraft: Pull Wires"
+}

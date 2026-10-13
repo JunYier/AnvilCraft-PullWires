@@ -16,7 +16,7 @@ import org.slf4j.Logger;
 
 @Mod(AnvilCraftPullWires.MOD_ID)
 public class AnvilCraftPullWires {
-    public static final String MOD_ID = "anvilcraft_addon_template";
+    public static final String MOD_ID = "anvilcraft_pullwires";
     public static final Logger LOGGER = LogUtils.getLogger();
     public static final AddonConfig CONFIG = ConfigManager.register(AnvilCraftPullWires.MOD_ID, AddonConfig::new);
     public static final Registrum REGISTRUM = Registrum.create(MOD_ID);

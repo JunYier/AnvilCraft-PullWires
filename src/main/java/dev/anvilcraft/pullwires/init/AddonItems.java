@@ -10,10 +10,6 @@ public class AddonItems {
         REGISTRUM.defaultCreativeTab(AddonItemGroups.ADDON_ITEMS.getKey());
     }
 
-    public static final ItemEntry<Item> EXAMPLE_ITEM = REGISTRUM
-            .item("example_item", Item::new)
-            .register();
-
     public static void register() {
     }
 }
