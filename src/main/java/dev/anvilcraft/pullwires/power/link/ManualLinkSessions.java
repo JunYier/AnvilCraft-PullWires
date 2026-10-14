@@ -71,6 +71,12 @@ public final class ManualLinkSessions {
         if (top == null) return false;
 
         PoleKey master = PoleKey.of(player.level(), top);
+        // 按住热键才有权限进入链接状态；关掉这个开关后，只剩「副手绑定磁盘」那条路。
+        if (!AnvilCraftPullWires.CONFIG.linking.enableManualLinkByHotkey) return false;
+        // 副手拿着磁盘时，热键右键同时把它绑定到这个主端（不碰本体的方块数据）。
+        if (AnvilCraftPullWires.CONFIG.linking.allowDiskBinding) {
+            DiskBinding.bind(player.getOffhandItem(), master);
+        }
         PENDING.put(player.getUUID(), master);
         clearGlint(player);
         setGlint(player.getMainHandItem(), true);
@@ -96,6 +102,34 @@ public final class ManualLinkSessions {
 
     public static boolean isPending(ServerPlayer player) {
         return PENDING.containsKey(player.getUUID());
+    }
+
+
+    /**
+     * 副手绑定磁盘路径：主手未进入链接状态，只在放下输电杆时尝试建立一次连接。
+     *
+     * <p>与本体 {@code DiskItem.onBlockPlaced}（副手磁盘 + 放置自动粘贴）同一思路，
+     * 但这里只做「建立连接」一件事，不碰目标杆的任何其它配置。</p>
+     */
+    public static void tryOffhandDiskLink(ServerPlayer player, ServerLevel level, BlockPos placedPos) {
+        if (!AnvilCraftPullWires.CONFIG.linking.allowDiskBinding) return;
+        // 已经在链接状态时由 onPolePlaced 负责，避免同一根杆被连两次。
+        if (PENDING.containsKey(player.getUUID())) return;
+
+        PoleKey master = DiskBinding.read(player.getOffhandItem());
+        if (master == null || !level.dimension().equals(master.dimension())) return;
+
+        BlockPos top = PoleResolver.resolveTop(level, placedPos);
+        if (top == null || top.equals(master.pos())) return;
+
+        double distance = Vec3.atCenterOf(top).distanceTo(Vec3.atCenterOf(master.pos()));
+        if (feedback(distance) != ManualLinkFeedback.IN_RANGE) {
+            playCancelSound(player);
+            return;
+        }
+        PoleKey slave = PoleKey.of(level, top);
+        if (WireLinkRegistry.get(player.server).createLink(master, slave) == null) return;
+        AddonNetwork.broadcastRegistry(player.server);
     }
 
     // ------------------------------------------------------------------ 每 tick
@@ -152,17 +186,21 @@ public final class ManualLinkSessions {
                     message(
                         "manual.too_far",
                         format(distance),
-                        String.valueOf(AnvilCraftPullWires.CONFIG.powerLink.manualConnectRange)
+                        String.valueOf(AnvilCraftPullWires.CONFIG.transmission.manualConnectRange)
                     ).withStyle(ChatFormatting.RED),
                     true
                 );
             }
             case IN_RANGE -> {
-                WireLinkRegistry.get(player.server).createLink(master, PoleKey.of(level, top));
-                PENDING.remove(player.getUUID());
-                clearGlint(player);
-                syncPending(player, null);
-                hideBar(player);
+                if (WireLinkRegistry.get(player.server).createLink(master, PoleKey.of(level, top)) == null) {
+                    // 同向重复：拒绝但不打断链接状态，玩家可以换个位置继续放。
+                    player.displayClientMessage(
+                        message("manual.duplicate_direction").withStyle(ChatFormatting.RED), true
+                    );
+                    return;
+                }
+                // V1.11.0：放下即建立，但**保持链接状态**。
+                // 手上拿多少根杆就能连着连多少根，不必每根都重新绑定一次。
                 AddonNetwork.broadcastRegistry(player.server);
                 player.displayClientMessage(
                     message("manual.connected").withStyle(ChatFormatting.GREEN),
@@ -206,8 +244,8 @@ public final class ManualLinkSessions {
         ServerBossEvent bar = BARS.get(player.getUUID());
         if (bar == null) return;
 
-        int range = AnvilCraftPullWires.CONFIG.powerLink.manualConnectRange;
-        double multiplier = AnvilCraftPullWires.CONFIG.powerLink.cancelDistanceMultiplier;
+        int range = AnvilCraftPullWires.CONFIG.transmission.manualConnectRange;
+        double multiplier = AnvilCraftPullWires.CONFIG.transmission.cancelDistanceMultiplier;
         boolean inRange = distance <= range;
 
         bar.setProgress(ManualLinkRule.barProgress(distance, range, multiplier));
@@ -232,8 +270,8 @@ public final class ManualLinkSessions {
     private static ManualLinkFeedback feedback(double distance) {
         return ManualLinkRule.feedback(
             distance,
-            AnvilCraftPullWires.CONFIG.powerLink.manualConnectRange,
-            AnvilCraftPullWires.CONFIG.powerLink.cancelDistanceMultiplier
+            AnvilCraftPullWires.CONFIG.transmission.manualConnectRange,
+            AnvilCraftPullWires.CONFIG.transmission.cancelDistanceMultiplier
         );
     }
 

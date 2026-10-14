@@ -16,6 +16,9 @@ public final class LinkRuntime {
     private int cursor;
     private int filled;
 
+    /** 本拍的实际转移量，供 tooltip 的「发送 / 接收电量」读取。 */
+    private int lastAmount;
+
     /** 挂起后的重连冷却（tick）。 */
     private int cooldownTicks;
 
@@ -41,8 +44,13 @@ public final class LinkRuntime {
         return sum / this.filled;
     }
 
+    public int lastAmount() {
+        return this.lastAmount;
+    }
+
     public void resetWindow() {
         Arrays.fill(this.window, 0);
+        this.lastAmount = 0;
         this.cursor = 0;
         this.filled = 0;
     }

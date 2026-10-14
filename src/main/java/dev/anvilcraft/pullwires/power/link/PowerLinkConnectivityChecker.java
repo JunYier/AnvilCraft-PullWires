@@ -62,7 +62,7 @@ public class PowerLinkConnectivityChecker extends ConnectivityChecker {
     public static PowerLinkRule.LinkNode linkNode(IPowerComponent component) {
         int range = PowerLinkRule.linkRange(
             component.getRange(),
-            AnvilCraftPullWires.CONFIG.powerLink.autoConnectRange
+            AnvilCraftPullWires.CONFIG.transmission.autoConnectRange
         );
         Vec3 center = component.getPos().getCenter();
         return new PowerLinkRule.LinkNode(center.x, center.y, center.z, range);

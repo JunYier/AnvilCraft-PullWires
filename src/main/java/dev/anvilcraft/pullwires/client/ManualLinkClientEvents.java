@@ -4,6 +4,7 @@ import dev.anvilcraft.pullwires.AnvilCraftPullWires;
 import dev.anvilcraft.pullwires.network.CancelManualLinkPacket;
 import dev.anvilcraft.pullwires.network.StartManualLinkPacket;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
+import dev.anvilcraft.pullwires.power.link.LinkState;
 import dev.anvilcraft.pullwires.util.PoleResolver;
 import dev.dubhe.anvilcraft.client.AnvilCraftClient;
 import dev.dubhe.anvilcraft.client.renderer.Line;
@@ -96,7 +97,7 @@ public class ManualLinkClientEvents {
         Vec3 from = ManualLinkAim.masterHead(master);
         Vec3 to = ManualLinkAim.placementHead(minecraft);
         if (to == null) return;
-        if (from.distanceTo(to) > AnvilCraftPullWires.CONFIG.powerLink.manualConnectRange) return;
+        if (from.distanceTo(to) > AnvilCraftPullWires.CONFIG.transmission.manualConnectRange) return;
 
         spawnSparks(level, from, to);
     }
@@ -122,10 +123,21 @@ public class ManualLinkClientEvents {
      * 而手动连接恰恰用于连接两座<b>不同</b>的电网，两端各自都不在同一座电网的成员表里，
      * 挂在任一网格上都画不出来。这里直接按服务端同步下来的链路列表画。</p>
      */
+    /** 链路状态 → 线色。默认值与本体同色，因此不配置时的观感与之前一致。 */
+    private static int colorFor(LinkState state) {
+        int rgb = switch (state) {
+            case ACTIVE -> AnvilCraftPullWiresClient.CONFIG.graphics.colorActive;
+            case INACTIVE -> AnvilCraftPullWiresClient.CONFIG.graphics.colorInactive;
+            case SUSPENDED -> AnvilCraftPullWiresClient.CONFIG.graphics.colorSuspended;
+            case PENDING -> AnvilCraftPullWiresClient.CONFIG.graphics.colorPending;
+        };
+        return 0xFF000000 | (rgb & 0xFFFFFF);
+    }
     @SubscribeEvent
     public static void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) return;
-        if (!AnvilCraftClient.CONFIG.graphics.renderPowerTransmitterLines) return;
+        // 本附属自己的开关，与本体 renderPowerTransmitterLines 解耦：本体线色不受影响。
+        if (!AnvilCraftPullWiresClient.CONFIG.graphics.renderManualLinkLines) return;
 
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) return;
@@ -142,7 +154,7 @@ public class ManualLinkClientEvents {
             Vec3 from = Vec3.atCenterOf(definition.master().pos());
             Vec3 to = Vec3.atCenterOf(definition.slave().pos());
             new Line(from, to, (float) from.distanceTo(to))
-                .render(pose, consumer, camera, Constant.TRANSMITTER_LINE_COLOR);
+                .render(pose, consumer, camera, colorFor(ManualLinkClientState.stateOf(definition.id())));
         }
         buffers.endBatch();
     }

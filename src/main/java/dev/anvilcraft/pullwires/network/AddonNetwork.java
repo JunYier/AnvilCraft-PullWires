@@ -2,6 +2,8 @@ package dev.anvilcraft.pullwires.network;
 
 import dev.anvilcraft.pullwires.power.link.WireLinkRegistry;
 import net.minecraft.server.MinecraftServer;
+
+import java.util.List;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -46,6 +48,16 @@ public final class AddonNetwork {
         if (server == null) return;
         WireLinkRegistry registry = WireLinkRegistry.get(server);
         PacketDistributor.sendToAllPlayers(SyncRegistryPacket.of(registry.links(), registry.poleEntries()));
+    }
+
+    /** 每拍推送一次转移量统计。与注册表分开，避免每秒重发整份链路列表。 */
+    public static void broadcastStats(
+        MinecraftServer server,
+        List<SyncLinkStatsPacket.Entry> entries,
+        List<SyncLinkStatsPacket.StateEntry> states
+    ) {
+        if (server == null || (entries.isEmpty() && states.isEmpty())) return;
+        PacketDistributor.sendToAllPlayers(SyncLinkStatsPacket.of(entries, states));
     }
 
     /** 玩家刚进服务器时单独推一份。 */

@@ -55,7 +55,7 @@ public final class AddonCommands {
 
     public static void register(RegisterCommandsEvent event) {
         event.getDispatcher().register(
-            Commands.literal("anvilcraft_pullwires")
+            Commands.literal("wires")
                 .requires(source -> source.hasPermission(2))
                 .then(Commands.literal("link")
                     .then(Commands.argument("posA", BlockPosArgument.blockPos())
@@ -66,7 +66,16 @@ public final class AddonCommands {
                         .then(Commands.argument("posB", BlockPosArgument.blockPos())
                             .executes(AddonCommands::unlink))))
                 .then(Commands.literal("list").executes(AddonCommands::list))
-                .then(Commands.literal("clear").executes(AddonCommands::clear))
+                // 清空是破坏性操作，要求显式 confirm，避免手滑。
+            .then(Commands.literal("clear")
+                .executes(context -> {
+                    send(
+                        context.getSource(),
+                        prefix().append(translatable("clear.confirm_hint", ChatFormatting.YELLOW))
+                    );
+                    return 0;
+                })
+                .then(Commands.literal("confirm").executes(AddonCommands::clear)))
         );
     }
 
@@ -87,7 +96,11 @@ public final class AddonCommands {
         WireLinkRegistry registry = WireLinkRegistry.get(source.getServer());
         PoleKey master = PoleKey.of(level, topA);
         PoleKey slave = PoleKey.of(level, topB);
-        registry.createLink(master, slave);
+        // 同向重复会被拒绝（返回 null）；反向允许，因此这里必须区分。
+        if (registry.createLink(master, slave) == null) {
+            send(source, prefix().append(translatable("error.duplicate_direction", ChatFormatting.RED)));
+            return 0;
+        }
         AddonNetwork.broadcastRegistry(source.getServer());
 
         send(source, prefix().append(translatable("link.created", ChatFormatting.WHITE)));

@@ -60,7 +60,7 @@ public abstract class SimplePowerGridMixin {
 
         // 同步过来的 range 是「供电范围」，而杆与杆之间的组网靠的是更大的「连接范围」。
         // 视觉过滤必须用连接范围 + 直线距离，否则会出现「电网连上了、线却不画」。
-        int configuredLinkRange = AnvilCraftPullWires.CONFIG.powerLink.autoConnectRange;
+        int configuredLinkRange = AnvilCraftPullWires.CONFIG.transmission.autoConnectRange;
         List<PowerLineLayout.Point2> projected = new ArrayList<>(count);
         List<PowerLinkRule.LinkNode> nodes = new ArrayList<>(count);
         for (PowerComponentInfo info : transmitters) {

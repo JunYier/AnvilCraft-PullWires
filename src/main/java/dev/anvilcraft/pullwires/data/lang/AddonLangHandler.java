@@ -3,6 +3,7 @@ package dev.anvilcraft.pullwires.data.lang;
 import dev.anvilcraft.lib.v2.config.ConfigData;
 import dev.anvilcraft.lib.v2.registrum.providers.RegistrumLangProvider;
 import dev.anvilcraft.pullwires.AddonConfig;
+import dev.anvilcraft.pullwires.client.AddonClientConfig;
 
 public class AddonLangHandler {
 
@@ -16,6 +17,7 @@ public class AddonLangHandler {
      */
     public static void init(RegistrumLangProvider provider) {
         ConfigData.readConfigClass(provider, AddonConfig.class);
+        ConfigData.readConfigClass(provider, AddonClientConfig.class);
 
         provider.add("command.anvilcraft_pullwires.prefix", "[Pull Wires] ");
         provider.add("command.anvilcraft_pullwires.link.created", "Link created:");
@@ -31,6 +33,10 @@ public class AddonLangHandler {
             "No Transmission Pole top segment found near the given position; aim at any segment of the pole"
         );
         provider.add("command.anvilcraft_pullwires.error.same_pole", "Cannot link a pole to itself");
+        provider.add(
+            "command.anvilcraft_pullwires.error.duplicate_direction",
+            "A link in this direction already exists (the reverse direction may coexist)"
+        );
         provider.add("command.anvilcraft_pullwires.pole", "%s[%s]");
         provider.add("command.anvilcraft_pullwires.coords", "%s, %s, %s");
 
@@ -43,18 +49,37 @@ public class AddonLangHandler {
         provider.add("message.anvilcraft_pullwires.manual.too_far", "Out of manual connect range (%s / %s blocks)");
         provider.add("message.anvilcraft_pullwires.manual.connected", "Link created");
         provider.add("message.anvilcraft_pullwires.manual.cancelled", "Pending link cancelled");
+        provider.add(
+            "message.anvilcraft_pullwires.manual.duplicate_direction",
+            "A link in this direction already exists"
+        );
         provider.add("message.anvilcraft_pullwires.priority.changed", "Priority %s -> %s");
         provider.add("message.anvilcraft_pullwires.priority.limit", "Priority is already %s (range 0-15)");
         provider.add("message.anvilcraft_pullwires.lock.locked", "Locked: this pole ignores redstone switching");
         provider.add("message.anvilcraft_pullwires.lock.unlocked", "Unlocked: this pole follows redstone again");
 
-        provider.add("tooltip.anvilcraft_pullwires.title", "Pull Wires");
-        provider.add("tooltip.anvilcraft_pullwires.priority", "Priority %s %s");
-        provider.add("tooltip.anvilcraft_pullwires.locked", "(locked)");
-        provider.add("tooltip.anvilcraft_pullwires.unlocked", "(unlocked)");
-        provider.add("tooltip.anvilcraft_pullwires.pending_master", "Pending master");
+        provider.add("tooltip.anvilcraft_pullwires.grid_information.total_consumed", "Total consumed: %s+%s");
+        provider.add("tooltip.anvilcraft_pullwires.grid_information.total_generated", "Total generated: %s+%s");
+        provider.add("tooltip.anvilcraft_pullwires.link.master", "Pull Wires (master):");
+        provider.add("tooltip.anvilcraft_pullwires.link.slave", "Pull Wires (slave):");
+        provider.add("tooltip.anvilcraft_pullwires.link.both", "Pull Wires (master / slave):");
+        provider.add("tooltip.anvilcraft_pullwires.link.send", "Sending: %s");
+        provider.add("tooltip.anvilcraft_pullwires.link.receive", "Receiving: %s");
+        provider.add("tooltip.anvilcraft_pullwires.link.send_receive", "Sending / receiving: %s / %s");
+        provider.add("tooltip.anvilcraft_pullwires.link.total", "Total transferred: %s");
+        provider.add("tooltip.anvilcraft_pullwires.link.priority", "Priority %s");
+        provider.add("tooltip.anvilcraft_pullwires.locked", "Locked");
+        provider.add("tooltip.anvilcraft_pullwires.unlocked", "Unlocked");
         provider.add("bossbar.anvilcraft_pullwires.manual_link", "Connect distance %s / %s (break at %s)");
 
+        provider.add(
+            "command.anvilcraft_pullwires.clear.confirm_hint",
+            "Clearing is destructive; run /wires clear confirm to proceed"
+        );
+        provider.add("command.anvilcraft_pullwires.display.on", "Connection list: always on display");
+        provider.add("command.anvilcraft_pullwires.display.off", "Connection list: hidden");
+        provider.add("hud.anvilcraft_pullwires.connection_list.header", "Links (%s)");
+        provider.add("hud.anvilcraft_pullwires.connection_list.more", "%s more...");
         provider.add("key.categories.anvilcraft_pullwires", "Pull Wires");
         provider.add("key.anvilcraft_pullwires.manual_link", "Manual link");
         provider.add("key.anvilcraft_pullwires.priority_adjust", "Adjust priority");

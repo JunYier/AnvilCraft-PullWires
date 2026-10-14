@@ -43,12 +43,10 @@ public abstract class HudTooltipManagerMixin {
         ITooltipProvider.BlockEntityTooltipProvider provider, BlockEntity entity
     ) {
         List<Component> base = provider.tooltip(entity);
-        List<Component> extra = PoleTooltipLines.of(entity);
-        if (extra.isEmpty()) return base;
-        List<Component> merged = new ArrayList<>(
-            base == null ? List.of() : base
-        );
-        merged.addAll(extra);
+        if (base == null) base = List.of();
+        // 先改写本体「电网统计」的两行（追加转出 / 转入量），再追加本模组的「拉电线」块与锁定状态。
+        List<Component> merged = new ArrayList<>(PoleTooltipLines.rewriteGridLines(base, entity));
+        merged.addAll(PoleTooltipLines.of(entity));
         return merged;
     }
 }

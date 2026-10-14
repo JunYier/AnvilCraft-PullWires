@@ -1,6 +1,8 @@
 package dev.anvilcraft.pullwires.power.link;
 
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
+import dev.anvilcraft.pullwires.network.AddonNetwork;
+import dev.anvilcraft.pullwires.network.SyncLinkStatsPacket;
 import dev.dubhe.anvilcraft.api.power.IPowerComponent;
 import dev.dubhe.anvilcraft.api.power.PowerGrid;
 import net.minecraft.core.BlockPos;
@@ -107,7 +109,8 @@ public final class PowerInterconnectManager {
                 links.size(),
                 nodeId(masterGrid, nodeIds, nodes, balances),
                 nodeId(slaveGrid, nodeIds, nodes, balances),
-                registry.config(definition.master()).priority()
+                registry.config(definition.master()).priority(),
+                definition.createdAt()
             ));
             settled.add(definition);
             settledMasters.add(masterGrid);
@@ -124,7 +127,9 @@ public final class PowerInterconnectManager {
                 registry.linkRuntime(definition.id()).push(0);
             }
 
-            for (InterconnectSettlement.Transfer transfer : InterconnectSettlement.settle(balanceArray, links)) {
+            List<InterconnectSettlement.Transfer> transfers =
+                InterconnectSettlement.settle(balanceArray, links);
+            for (InterconnectSettlement.Transfer transfer : transfers) {
                 deltas.merge(nodes.get(transfer.fromNode()), -transfer.amount(), Integer::sum);
                 deltas.merge(nodes.get(transfer.toNode()), transfer.amount(), Integer::sum);
 
@@ -134,12 +139,14 @@ public final class PowerInterconnectManager {
                     ? transfer.amount()
                     : -transfer.amount();
                 registry.linkRuntime(settled.get(index).id()).push(signed);
+                registry.addLinkTotal(settled.get(index).id(), transfer.amount());
             }
         }
 
         // 整体替换而不是增量更新，这样已经消失的电网不会残留脏数据。
         DELTAS.clear();
         DELTAS.putAll(deltas);
+        publishStats(server, registry, deltas);
 
         // 顺序含义：先用「这一拍的实际净流出」更新窗口，再据此决定要不要断开。
         tickReconnectCooldowns(registry);
@@ -165,7 +172,7 @@ public final class PowerInterconnectManager {
      * 这种情况下的状态变化由「电网是否存在」自然反映，只是拿不到「开关重启」这个事件。</p>
      */
     private static void observeSwitchRestarts(MinecraftServer server, WireLinkRegistry registry) {
-        if (!AnvilCraftPullWires.CONFIG.powerLink.switchRestartResetsRuntime) return;
+        if (!AnvilCraftPullWires.CONFIG.transmission.switchRestartResetsRuntime) return;
 
         for (PoleKey key : registry.linkedPoles()) {
             ServerLevel level = server.getLevel(key.dimension());
@@ -197,7 +204,7 @@ public final class PowerInterconnectManager {
      * 每挂起一条就按它的平均净流出扣减，扣到不为正即停——等价于「每断一条重新评估」。</p>
      */
     private static void shedDeficitLinks(MinecraftServer server, WireLinkRegistry registry) {
-        int threshold = AnvilCraftPullWires.CONFIG.powerLink.manualLinkDeficitTicks;
+        int threshold = AnvilCraftPullWires.CONFIG.settlement.manualLinkDeficitTicks;
         if (threshold <= 0) return;
 
         for (PoleKey master : registry.linkedPoles()) {
@@ -235,7 +242,7 @@ public final class PowerInterconnectManager {
                 LinkRuntime runtimeLink = registry.linkRuntime(definition.id());
                 int netOut = runtimeLink.averageNetOut();
                 registry.setState(definition.id(), LinkState.SUSPENDED);
-                runtimeLink.setCooldownTicks(AnvilCraftPullWires.CONFIG.powerLink.manualLinkReconnectCooldown);
+                runtimeLink.setCooldownTicks(AnvilCraftPullWires.CONFIG.settlement.manualLinkReconnectCooldown);
                 runtimeLink.resetWindow();
                 remaining -= netOut;
                 if (remaining <= 0) break;
@@ -255,8 +262,8 @@ public final class PowerInterconnectManager {
      */
     private static void runReconnect(MinecraftServer server, WireLinkRegistry registry) {
         int step = PowerGrid.gridInterval();
-        int stableTicks = AnvilCraftPullWires.CONFIG.powerLink.reconnectStableTicks;
-        int requestInterval = Math.max(step, AnvilCraftPullWires.CONFIG.powerLink.reconnectRequestInterval);
+        int stableTicks = AnvilCraftPullWires.CONFIG.settlement.reconnectStableTicks;
+        int requestInterval = Math.max(step, AnvilCraftPullWires.CONFIG.settlement.reconnectRequestInterval);
 
         for (LinkDefinition definition : registry.links()) {
             LinkState state = registry.stateOf(definition.id());
@@ -292,6 +299,53 @@ public final class PowerInterconnectManager {
         for (LinkDefinition definition : registry.links()) {
             registry.linkRuntime(definition.id()).tickCooldown(step);
         }
+    }
+
+    /**
+     * 汇总每根杆的转移量统计并推给客户端。
+     *
+     * <p>放在结算的最后一步，是因为它需要读取<b>本拍刚写入</b>的净流量（{@code deltas}）与累计量。
+     * 「总转移电量」取持久化的累计值，因此跨会话保留；「发送 / 接收电量」是本拍瞬时值。</p>
+     *
+     * <p>电网的净流出 / 净流入直接取自 {@code deltas}——它本身就是「该电网本拍的净进口（正）/ 净出口（负）」，
+     * 不需要再单独统计一遍。</p>
+     */
+    private static void publishStats(
+        MinecraftServer server, WireLinkRegistry registry, Map<PowerGrid, Integer> deltas
+    ) {
+        List<SyncLinkStatsPacket.Entry> stats = new ArrayList<>();
+        for (PoleKey pole : registry.linkedPoles()) {
+            int sendNow = 0;
+            int recvNow = 0;
+            long sendTotal = 0;
+            long recvTotal = 0;
+            for (LinkDefinition definition : registry.links()) {
+                boolean asMaster = definition.master().equals(pole);
+                boolean asSlave = definition.slave().equals(pole);
+                if (!asMaster && !asSlave) continue;
+                LinkRuntime runtime = registry.linkRuntime(definition.id());
+                if (asMaster) {
+                    sendNow += runtime.lastAmount();
+                    sendTotal += registry.linkTotal(definition.id());
+                } else {
+                    recvNow += runtime.lastAmount();
+                    recvTotal += registry.linkTotal(definition.id());
+                }
+            }
+            PowerGrid grid = findGrid(server, pole);
+            int delta = grid == null ? 0 : deltas.getOrDefault(grid, 0);
+            stats.add(new SyncLinkStatsPacket.Entry(
+                pole, sendNow, recvNow, sendTotal, recvTotal,
+                delta < 0 ? -delta : 0, delta > 0 ? delta : 0
+            ));
+        }
+        registry.setPoleStats(stats);
+
+        List<SyncLinkStatsPacket.StateEntry> states = new ArrayList<>();
+        for (LinkDefinition definition : registry.links()) {
+            states.add(new SyncLinkStatsPacket.StateEntry(definition.id(), registry.stateOf(definition.id())));
+        }
+        AddonNetwork.broadcastStats(server, stats, states);
     }
 
     // ------------------------------------------------------------ 内部

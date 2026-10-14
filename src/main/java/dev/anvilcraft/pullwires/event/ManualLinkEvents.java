@@ -39,7 +39,10 @@ public class ManualLinkEvents {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         if (!event.getPlacedBlock().is(ModBlocks.TRANSMISSION_POLE.get())) return;
+        // 两条路径：热键链接状态（onPolePlaced）与副手绑定磁盘（tryOffhandDiskLink）。
+        // 已在链接状态时后者会自动让位，不会把同一根杆连两次。
         ManualLinkSessions.onPolePlaced(player, level, event.getPos());
+        ManualLinkSessions.tryOffhandDiskLink(player, level, event.getPos());
     }
 
     @SubscribeEvent
