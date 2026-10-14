@@ -69,15 +69,19 @@ public class ManualLinkClientEvents {
         // 跨维度杆连上之后，玩家手上多半什么都没拿。
         spawnCrossDimensionPortals(level);
 
-        ItemStack main = player.getMainHandItem();
-        LinkBinding.Bound bound = LinkBinding.read(main);
+        // 主手优先，其次副手磁盘：「副手拿绑定磁盘、主手放杆」时同样要看到引导带。
+        ItemStack carrier = LinkBinding.carrierOf(
+            player, AnvilCraftPullWires.CONFIG.linking.allowDiskBinding
+        );
+        if (carrier == null) return;
+        LinkBinding.Bound bound = LinkBinding.read(carrier);
         if (bound == null) return;
-        // 主板头部的坐标只在主端所在维度里有意义。跨维度时主端不在本地世界，
+        // 主端头部的坐标只在主端所在维度里有意义。跨维度时主端不在本地世界，
         // 若照旧取坐标，会画出一条从本地某处指向下界坐标的虚假引导带。
         if (!ClientLinkVisibility.inLocalLevel(level, bound.master())) return;
         // 手持输电杆（开始链接）或手持磁盘（只绑定主端）都算。
-        boolean holdingPole = PoleKind.isPoleItem(main);
-        boolean holdingDisk = main.getItem() instanceof DiskItem;
+        boolean holdingPole = PoleKind.isPoleItem(carrier);
+        boolean holdingDisk = carrier.getItem() instanceof DiskItem;
         if (!holdingPole && !holdingDisk) return;
 
         Vec3 from = ManualLinkAim.masterHead(bound.master().pos());
@@ -116,18 +120,21 @@ public class ManualLinkClientEvents {
      * 一束传送门粒子：在杆头周围的随机位置出现，然后沿直线飞向杆头。
      *
      * <h2>运动模型直接借原版 {@code PortalParticle}</h2>
-     * <p>它把 {@code addParticle} 的后三个参数当作<b>整个生命周期内的总位移</b>（不是速度），
-     * 每 tick 按下式定位：</p>
+     * <p>它把 {@code addParticle} 的后三个参数当作<b>相对于终点的位移</b>（不是速度），每 tick 按下式定位：</p>
      * <pre>
      * f  = age / lifetime
-     * f1 = -f + 2f²          // f2 = 1 - f1：0 → 1 → 1.125 → 1 → 0
+     * f1 = -f + 2f²
+     * f2 = 1 - f1            // 1 → 1.125 → 0
      * x  = xStart + dx * f2
-     * y  = yStart + dy * f2 + (1 - f)   // 一点点抬起，位置略微上凸
+     * y  = yStart + dy * f2 + (1 - f)
      * z  = zStart + dz * f2
      * </pre>
-     * <p>所以只要把「杆头 − 起点」当作总位移传进去，粒子就会在生命周期结束时<b>精确落在杆头上</b>，
-     * 中途自然收敛，不需要每 tick 干预、也不需要自己算速度衰减。这与下界传送门的粒子是同一套代码，
-     * 因此观感一致——「在一定区域内出现，然后被吸向杆头」。</p>
+     * <p><b>关键在于谁是终点</b>：{@code f2} 从 1 缓动到 0，所以粒子是<b>从「位置 + 位移」出发、
+     * 收束到「位置」</b>——传进去的坐标是<b>终点</b>，位移表示它离终点有多远。</p>
+     * <p>（第一版把方向看反了：拿随机点当位置、杆头当位移，于是粒子从杆头飞向外面。）</p>
+     * <p>因此「在随机位置出现、飞向杆头」= 位置传<b>杆头</b>、位移传<b>起点 − 杆头</b>。</p>
+     * <p>{@code y} 那一项多出来的 {@code (1 - f)} 是原版的抬起量（起点比直线高约 1 格），
+     * 这里从位移里预先减掉 1，使得粒子的实际出现位置正好是选定的随机点。</p>
      */
     private static void spawnPortalBurst(ClientLevel level, BlockPos top) {
         double headX = top.getX() + 0.5;
@@ -143,8 +150,10 @@ public class ManualLinkClientEvents {
             double startZ = headZ + Math.sin(angle) * radius;
             level.addParticle(
                 ParticleTypes.PORTAL,
-                startX, startY, startZ,
-                headX - startX, headY - startY, headZ - startZ
+                // 位置 = 终点 = 杆头
+                headX, headY, headZ,
+                // 位移 = 起点 − 杆头（y 再减掉原版那 1 格抬起）
+                startX - headX, startY - headY - 1.0, startZ - headZ
             );
         }
     }

@@ -5,6 +5,7 @@ import net.minecraft.core.component.DataComponents;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
 import org.jetbrains.annotations.Nullable;
@@ -71,11 +72,35 @@ public final class LinkBinding {
     /** 读取绑定的主端；未绑定时返回 null。 */
     public static @Nullable Bound read(ItemStack stack) {
         if (stack.isEmpty()) return null;
-        CompoundTag tag = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
+        // 先看有没有自定义数据再 copyTag：read 在每 tick 的 Boss 条更新里会被调用，
+        // 而绝大多数物品压根没有自定义数据，没必要每次都复制一份空 CompoundTag。
+        CustomData data = stack.get(DataComponents.CUSTOM_DATA);
+        if (data == null) return null;
+        CompoundTag tag = data.copyTag();
         if (!(tag.get(KEY) instanceof CompoundTag value)) return null;
         PoleKey master = PoleKey.CODEC.parse(NbtOps.INSTANCE, value.get(MASTER_KEY)).result().orElse(null);
         if (master == null) return null;
         return new Bound(master, parseKind(value.getString(KIND_KEY)));
+    }
+
+    /**
+     * 从玩家两只手里找出携带绑定的那一份；都没有则返回 {@code null}。
+     *
+     * <p>主手优先。主手没有绑定时才看副手——而且只有<b>磁盘</b>才享受这个回退，
+     * 因为「副手拿绑定磁盘、主手放杆」是与本体磁盘 {@code onBlockPlaced} 一致的既定用法
+     * （副手放一份数据、主手放方块时自动应用）。</p>
+     *
+     * <p>调用方拿到的是<b>那一只手里的真实物品堆</b>，可以直接传给 {@link #clear}。</p>
+     *
+     * @param allowOffhandDisk 是否允许副手磁盘回退，取值自配置 {@code linking.allowDiskBinding}
+     */
+    public static @Nullable ItemStack carrierOf(Player player, boolean allowOffhandDisk) {
+        ItemStack main = player.getMainHandItem();
+        if (read(main) != null) return main;
+        if (!allowOffhandDisk) return null;
+        ItemStack offhand = player.getOffhandItem();
+        if (offhand.getItem() instanceof DiskItem && read(offhand) != null) return offhand;
+        return null;
     }
 
     /** 认不出的种类名返回 null，而不是猜一个——猜错会直接改变距离上限。 */

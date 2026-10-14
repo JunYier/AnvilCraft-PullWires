@@ -51,15 +51,20 @@ public final class ManualLinkSessions {
 
     /** 绑定驱动 Boss 条：有绑定就显示，没有就隐藏。 */
     public static void tick(ServerPlayer player) {
-        ItemStack main = player.getMainHandItem();
-        LinkBinding.Bound bound = LinkBinding.read(main);
+        // 主手优先，其次副手磁盘——「副手拿绑定磁盘、主手放杆」时同样要看得到距离条。
+        ItemStack carrier = LinkBinding.carrierOf(player, allowOffhandDisk());
+        if (carrier == null) {
+            hideBar(player);
+            return;
+        }
+        LinkBinding.Bound bound = LinkBinding.read(carrier);
         if (bound == null) {
             hideBar(player);
             return;
         }
         ServerLevel level = player.server.getLevel(bound.master().dimension());
         if (level == null) {
-            LinkBinding.clear(main);
+            LinkBinding.clear(carrier);
             hideBar(player);
             return;
         }
@@ -69,11 +74,16 @@ public final class ManualLinkSessions {
         // 顺带也避免了「玩家在下界、每个 tick 强加载主世界一格方块」。
         if (level.isLoaded(bound.master().pos())
             && !PoleResolver.isPole(level, bound.master().pos())) {
-            LinkBinding.clear(main);
+            LinkBinding.clear(carrier);
             hideBar(player);
             return;
         }
         showBar(player, bound);
+    }
+
+    /** 「副手磁盘也能触发建链」的配置开关。 */
+    private static boolean allowOffhandDisk() {
+        return AnvilCraftPullWires.CONFIG.linking.allowDiskBinding;
     }
 
     // ------------------------------------------------------------------ 建链
@@ -81,10 +91,13 @@ public final class ManualLinkSessions {
     /**
      * 玩家放下了一根输电杆：按绑定把它连到主端。
      *
-     * <p>这是「杆物品」那一半的用法——手里有多少根杆就能连着放多少根。</p>
+     * <p>绑定来自两只手里携带它的那一份：主手那根杆（手里有多少根就能连着放多少根），
+     * 或<b>副手的磁盘</b>——「副手拿绑定磁盘、主手放杆」与本体磁盘 {@code onBlockPlaced}
+     * 的用法一致，由 {@code linking.allowDiskBinding} 控制。</p>
      */
     public static void onPolePlaced(ServerPlayer player, ServerLevel level, BlockPos placedPos) {
-        ItemStack carrier = player.getMainHandItem();
+        ItemStack carrier = LinkBinding.carrierOf(player, allowOffhandDisk());
+        if (carrier == null) return;
         LinkBinding.Bound bound = LinkBinding.read(carrier);
         if (bound == null) return;
 

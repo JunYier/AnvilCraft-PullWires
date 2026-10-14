@@ -50,8 +50,8 @@ public class ManualLinkEvents {
         // 认杆只有一条路（PoleKind），不要在这里再写一遍方块清单：
         // 之前这里只认本体那两种杆，超远程杆与跨维度杆放下时根本不会触发连接。
         if (PoleKind.of(event.getPlacedBlock()) == null) return;
-        // 两条路径：链接状态（onPolePlaced）与副手绑定磁盘（tryOffhandDiskLink）。
-        // 已在链接状态时后者会自动让位，不会把同一根杆连两次。
+        // 绑定可以写在主手那根杆上，也可以写在副手的磁盘上——
+        // 两条路都在 onPolePlaced 里取（见 LinkBinding#carrierOf）。
         ManualLinkSessions.onPolePlaced(player, level, event.getPos());
     }
 
