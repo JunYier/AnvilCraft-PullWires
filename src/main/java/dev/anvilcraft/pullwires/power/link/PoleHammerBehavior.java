@@ -81,6 +81,15 @@ public class PoleHammerBehavior implements dev.dubhe.anvilcraft.api.hammer.IHamm
         PoleKey key = PoleKey.of(level, top);
         boolean locked = !registry.config(key).locked();
         registry.setLocked(key, locked);
+        if (!locked) {
+            // 刚解锁：本体的 update 只在「邻居变化」时才会跑，而解锁本身不是一次邻居变化，
+            // 所以这里主动触发一次——否则杆会停在锁定期间的旧开关状态，直到旁边有方块变动才被纠正。
+            BlockPos bottom = PoleResolver.resolveBottom(level, blockPos);
+            if (bottom != null) {
+                BlockState bottomState = level.getBlockState(bottom);
+                level.neighborChanged(bottom, bottomState.getBlock(), bottom);
+            }
+        }
         AddonNetwork.broadcastRegistry(serverPlayer.server);
         serverPlayer.displayClientMessage(
             message(locked ? "lock.locked" : "lock.unlocked").withStyle(

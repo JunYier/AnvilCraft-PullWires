@@ -6,7 +6,9 @@
   "mixins": [
     "PowerGridFlushMixin",
     "PowerGridManagerTickMixin",
-    "PowerGridMixin"
+    "PowerGridMixin",
+    "RemoteTransmissionPoleLockMixin",
+    "TransmissionPoleLockMixin"
   ],
   "client": [
     "client.HudTooltipManagerMixin",

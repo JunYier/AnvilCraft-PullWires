@@ -48,4 +48,26 @@ public final class PoleResolver {
         }
         return false;
     }
+
+    /**
+     * 把任意一段解析成<b>底段</b>坐标。
+     *
+     * <p>本体的 {@code update} 只在底段执行（其余段直接返回），所以「解锁后强制重新评估一次红石状态」
+     * 必须以底段为入口触发才有意义。</p>
+     */
+    public static @Nullable BlockPos resolveBottom(BlockGetter level, BlockPos pos) {
+        for (int dy = -3; dy <= 3; dy++) {
+            BlockPos candidate = pos.offset(0, dy, 0);
+            BlockState state = level.getBlockState(candidate);
+            if (state.is(ModBlocks.TRANSMISSION_POLE.get())
+                && state.getValue(TransmissionPoleBlock.HALF) == Vertical3PartHalf.BOTTOM) {
+                return candidate;
+            }
+            if (state.is(ModBlocks.REMOTE_TRANSMISSION_POLE.get())
+                && state.getValue(RemoteTransmissionPoleBlock.HALF) == Vertical4PartHalf.BOTTOM) {
+                return candidate;
+            }
+        }
+        return null;
+    }
 }
