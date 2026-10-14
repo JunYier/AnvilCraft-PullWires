@@ -3,7 +3,11 @@ package dev.anvilcraft.pullwires.event;
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
 import dev.anvilcraft.pullwires.network.AddonNetwork;
 import dev.anvilcraft.pullwires.power.link.ManualLinkSessions;
+import dev.anvilcraft.pullwires.power.link.PoleKey;
+import dev.anvilcraft.pullwires.power.link.WireLinkRegistry;
+import dev.anvilcraft.pullwires.util.PoleResolver;
 import dev.dubhe.anvilcraft.init.block.ModBlocks;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -58,5 +62,27 @@ public class ManualLinkEvents {
         if (event.getEntity() instanceof ServerPlayer player) {
             AddonNetwork.sendLinks(player);
         }
+    }
+
+    /**
+     * 拆掉输电杆时回收它的链路。
+     *
+     * <p>不做这一步的话，链路定义会一直留在注册表里——电力线继续渲染、结算继续引用一个已经不存在的杆。</p>
+     */
+    @SubscribeEvent
+    public static void onBreak(BlockEvent.BreakEvent event) {
+        if (!(event.getLevel() instanceof ServerLevel level)) return;
+        if (!event.getState().is(ModBlocks.TRANSMISSION_POLE.get())
+            && !event.getState().is(ModBlocks.REMOTE_TRANSMISSION_POLE.get())) {
+            return;
+        }
+        BlockPos top = PoleResolver.resolveTop(level, event.getPos());
+        if (top == null) return;
+
+        WireLinkRegistry registry = WireLinkRegistry.get(level.getServer());
+        PoleKey key = PoleKey.of(level, top);
+        boolean hadLinks = !registry.linksOf(key).isEmpty();
+        registry.removePole(key);
+        if (hadLinks) AddonNetwork.broadcastLinks(level.getServer());
     }
 }

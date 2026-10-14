@@ -15,23 +15,24 @@ public class AddonConfig {
     public static class PowerLink {
         @Comment(
             """
-            Controls the auto-connect range of Transmission Poles (in blocks)
+            Controls the auto-connect range of Transmission Poles (in blocks, straight-line distance)
+            Defaults to 1.5x the pole's own range from AnvilCraft's config
             Poles within this range join the same grid, but this range does NOT supply power:
             generators, consumers and storages still only join by the pole's own range
             """
         )
         @BoundedDiscrete(min = 1, max = 128)
-        public int autoConnectRange = 16;
+        public int autoConnectRange = 12;
 
         @Comment(
             """
             Controls the maximum straight-line distance of a manual connection (in blocks)
+            Defaults to 2x the pole's own range from AnvilCraft's config
             Measured between the top segments of the two poles, not between bounding boxes
-            The default equals twice the default autoConnectRange
             """
         )
         @BoundedDiscrete(min = 1, max = 256)
-        public int manualConnectRange = 32;
+        public int manualConnectRange = 16;
 
         @Comment(
             """

@@ -101,10 +101,21 @@ public final class ManualLinkSessions {
             cancel(player, true);
             return;
         }
+        // 自愈：生存模式放下杆会把手上的那一堆消耗掉，附魔光泽跟着一起没了；
+        // 拆回来的掉落物是新建的物品堆，同样不带光泽。所以每 tick 补一次。
+        refreshGlint(player);
+
         double distance = aimDistance(player, master);
         if (feedback(distance) != ManualLinkFeedback.CANCEL) return;
         cancel(player, false);
         playCancelSound(player);
+    }
+
+    private static void refreshGlint(ServerPlayer player) {
+        ItemStack held = player.getMainHandItem();
+        if (isPoleItem(held) && !held.has(DataComponents.ENCHANTMENT_GLINT_OVERRIDE)) {
+            setGlint(held, true);
+        }
     }
 
     // ------------------------------------------------------------------ 放置
@@ -126,14 +137,18 @@ public final class ManualLinkSessions {
                 cancel(player, false);
                 playCancelSound(player);
             }
-            case OUT_OF_RANGE -> player.displayClientMessage(
-                message(
-                    "manual.too_far",
-                    format(distance),
-                    String.valueOf(AnvilCraftPullWires.CONFIG.powerLink.manualConnectRange)
-                ).withStyle(ChatFormatting.RED),
-                true
-            );
+            case OUT_OF_RANGE -> {
+                // 与超距断开共用同一个音符盒音效，让「失败了」这件事有一致的听觉反馈。
+                playCancelSound(player);
+                player.displayClientMessage(
+                    message(
+                        "manual.too_far",
+                        format(distance),
+                        String.valueOf(AnvilCraftPullWires.CONFIG.powerLink.manualConnectRange)
+                    ).withStyle(ChatFormatting.RED),
+                    true
+                );
+            }
             case IN_RANGE -> {
                 WireLinkRegistry.get(player.server).createLink(master, PoleKey.of(level, top));
                 PENDING.remove(player.getUUID());
@@ -141,7 +156,7 @@ public final class ManualLinkSessions {
                 syncPending(player, null);
                 AddonNetwork.broadcastLinks(player.server);
                 player.displayClientMessage(
-                    message("manual.connected", poleText(master)).withStyle(ChatFormatting.GREEN),
+                    message("manual.connected").withStyle(ChatFormatting.GREEN),
                     false
                 );
             }

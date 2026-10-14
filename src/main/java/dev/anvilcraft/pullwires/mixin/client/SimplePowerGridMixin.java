@@ -59,26 +59,23 @@ public abstract class SimplePowerGridMixin {
         }
 
         // 同步过来的 range 是「供电范围」，而杆与杆之间的组网靠的是更大的「连接范围」。
-        // 视觉过滤必须用连接范围，否则会出现「电网连上了、线却不画」。
+        // 视觉过滤必须用连接范围 + 直线距离，否则会出现「电网连上了、线却不画」。
         int configuredLinkRange = AnvilCraftPullWires.CONFIG.powerLink.autoConnectRange;
         List<PowerLineLayout.Point2> projected = new ArrayList<>(count);
-        List<Integer> linkRanges = new ArrayList<>(count);
+        List<PowerLinkRule.LinkNode> nodes = new ArrayList<>(count);
         for (PowerComponentInfo info : transmitters) {
             Vec3 center = info.pos().getCenter();
             // 与本体一致的微小偏移：把垂直堆叠的杆在平面上分开，避免产生零长边。
             double offset = (center.y - 1024) / 2048;
             projected.add(new PowerLineLayout.Point2(center.x + offset, center.z + offset));
-            linkRanges.add(PowerLinkRule.linkRange(info.range(), configuredLinkRange));
+            nodes.add(new PowerLinkRule.LinkNode(
+                center.x, center.y, center.z, PowerLinkRule.linkRange(info.range(), configuredLinkRange)
+            ));
         }
 
-        List<PowerLineLayout.Edge> edges = PowerLineLayout.layout(projected, (first, second) -> {
-            Vec3 from = transmitters.get(first).pos().getCenter();
-            Vec3 to = transmitters.get(second).pos().getCenter();
-            return PowerLinkRule.visualLinkOverlap(
-                from.x, from.y, from.z, linkRanges.get(first),
-                to.x, to.y, to.z, linkRanges.get(second)
-            );
-        });
+        List<PowerLineLayout.Edge> edges = PowerLineLayout.layout(
+            projected, (first, second) -> PowerLinkRule.linked(nodes.get(first), nodes.get(second))
+        );
 
         Set<Line> lines = new HashSet<>();
         for (PowerLineLayout.Edge edge : edges) {

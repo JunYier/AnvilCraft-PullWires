@@ -41,8 +41,9 @@ public class AddonLangHandler {
 
         provider.add("message.anvilcraft_pullwires.manual.started", "Master set to %s; place a Transmission Pole within range to link");
         provider.add("message.anvilcraft_pullwires.manual.too_far", "Out of manual connect range (%s / %s blocks)");
-        provider.add("message.anvilcraft_pullwires.manual.connected", "Linked to %s");
+        provider.add("message.anvilcraft_pullwires.manual.connected", "Link created");
         provider.add("message.anvilcraft_pullwires.manual.cancelled", "Pending link cancelled");
+        provider.add("hud.anvilcraft_pullwires.manual_link.distance", "Connect distance %s / %s");
 
         provider.add("key.categories.anvilcraft_pullwires", "Pull Wires");
         provider.add("key.anvilcraft_pullwires.manual_link", "Manual link");

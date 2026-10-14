@@ -6,6 +6,7 @@ import dev.dubhe.anvilcraft.api.power.IPowerComponent;
 import dev.dubhe.anvilcraft.api.power.PowerComponentType;
 import dev.dubhe.anvilcraft.api.power.PowerGrid;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.TriState;
 
 import java.util.ArrayList;
@@ -15,8 +16,9 @@ import java.util.List;
  * 把本体的「连接范围即供电范围」拆成两档。
  *
  * <p>本体 {@code IPowerComponent#getShape()} 只有一个范围（{@code range}），它同时决定组网与供电。
- * 本模组让输电杆多出一个更大的<b>自动连接范围</b>：杆与杆之间可以靠它在更远处组网，
- * 但发电机／用电器／储电元件仍然只能按原本的 {@code range} 并网，因此扩大范围不会凭空供电。</p>
+ * 本模组让输电杆多出一个更大的<b>自动连接范围</b>：杆与杆之间用<b>直线距离</b>在这个范围内组网，
+ * 但发电机／用电器／储电元件仍然只能按原本的 {@code range}（包围盒）并网，
+ * 因此扩大范围不会凭空供电。</p>
  *
  * <p>为了不改动本体逻辑，这里走本体提供的 {@code ConnectivityChecker} 扩展点：
  * 只对<b>中继元件（输电杆）</b>返回 {@code TRUE}/{@code FALSE} 给出明确结论，
@@ -38,34 +40,32 @@ public class PowerLinkConnectivityChecker extends ConnectivityChecker {
         if (component.getComponentType() != PowerComponentType.TRANSMITTER) return TriState.DEFAULT;
 
         List<PowerLinkRule.Box> gridSupply = new ArrayList<>();
-        List<PowerLinkRule.Box> gridLink = new ArrayList<>();
+        List<PowerLinkRule.LinkNode> gridTransmitters = new ArrayList<>();
         for (IPowerComponent other : powerGrid.getComponents()) {
             gridSupply.add(toBox(other.getShape()));
             if (other.getComponentType() == PowerComponentType.TRANSMITTER) {
-                gridLink.add(linkBox(other));
+                gridTransmitters.add(linkNode(other));
             }
         }
 
         boolean canJoin = PowerLinkRule.canTransmitterJoin(
             toBox(component.getShape()),
-            linkBox(component),
             gridSupply,
-            gridLink
+            linkNode(component),
+            gridTransmitters
         );
         // 返回 FALSE 而不是 DEFAULT：明确接管输电杆的判定，不依赖本体 checker 的内部实现。
         return canJoin ? TriState.TRUE : TriState.FALSE;
     }
 
-    /**
-     * 输电杆的连接框。范围见 {@link PowerLinkRule#linkRange(int, int)}。
-     */
-    public static PowerLinkRule.Box linkBox(IPowerComponent component) {
+    /** 输电杆的连接节点，范围见 {@link PowerLinkRule#linkRange(int, int)}。 */
+    public static PowerLinkRule.LinkNode linkNode(IPowerComponent component) {
         int range = PowerLinkRule.linkRange(
             component.getRange(),
             AnvilCraftPullWires.CONFIG.powerLink.autoConnectRange
         );
-        double size = range * 2 + 1;
-        return toBox(AABB.ofSize(component.getPos().getCenter(), size, size, size));
+        Vec3 center = component.getPos().getCenter();
+        return new PowerLinkRule.LinkNode(center.x, center.y, center.z, range);
     }
 
     private static PowerLinkRule.Box toBox(AABB box) {

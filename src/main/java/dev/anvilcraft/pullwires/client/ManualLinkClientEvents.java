@@ -93,29 +93,12 @@ public class ManualLinkClientEvents {
         if (master == null || player == null || level == null) return;
         if (!player.getMainHandItem().is(ModBlocks.TRANSMISSION_POLE.get().asItem())) return;
 
-        Vec3 from = headOf(master);
-        Vec3 to = placementHead(minecraft);
+        Vec3 from = ManualLinkAim.masterHead(master);
+        Vec3 to = ManualLinkAim.placementHead(minecraft);
         if (to == null) return;
         if (from.distanceTo(to) > AnvilCraftPullWires.CONFIG.powerLink.manualConnectRange) return;
 
         spawnSparks(level, from, to);
-    }
-
-    private static Vec3 headOf(BlockPos pos) {
-        return Vec3.atBottomCenterOf(pos).add(0.0, 1.0, 0.0);
-    }
-
-    /**
-     * 方块放置预览的头部。
-     *
-     * <p>用当前帧的 {@code hitResult} 推算出「这一下会放在哪一格」，与本体画碰撞箱勾勒用的是同一个依据。
-     * 没瞄准任何方块时没有预览轮廓，自然也不生成粒子。</p>
-     */
-    private static @Nullable Vec3 placementHead(Minecraft minecraft) {
-        if (!(minecraft.hitResult instanceof BlockHitResult hit)) return null;
-        if (hit.getType() != HitResult.Type.BLOCK) return null;
-        BlockPos placement = hit.getBlockPos().relative(hit.getDirection());
-        return headOf(placement);
     }
 
     private static void spawnSparks(ClientLevel level, Vec3 from, Vec3 to) {

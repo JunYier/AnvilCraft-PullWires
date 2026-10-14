@@ -1,12 +1,12 @@
 {
   "anvilcraft_pullwires.configuration.power_link": "ʞuᴉꞀ ɹǝʍoԀ",
   "anvilcraft_pullwires.configuration.power_link.auto_connect_range": "ǝᵷuɐᴚ ʇɔǝuuoƆ oʇnⱯ",
-  "anvilcraft_pullwires.configuration.power_link.auto_connect_range.tooltip": "\nǝᵷuɐɹ uʍo s,ǝꞁod ǝɥʇ ʎq uᴉoɾ ʎꞁuo ꞁꞁᴉʇs sǝᵷɐɹoʇs puɐ sɹǝɯnsuoɔ 'sɹoʇɐɹǝuǝᵷ\n:ɹǝʍod ʎꞁddns ⟘ON sǝop ǝᵷuɐɹ sᴉɥʇ ʇnq 'pᴉɹᵷ ǝɯɐs ǝɥʇ uᴉoɾ ǝᵷuɐɹ sᴉɥʇ uᴉɥʇᴉʍ sǝꞁoԀ\n(sʞɔoꞁq uᴉ) sǝꞁoԀ uoᴉssᴉɯsuɐɹ⟘ ɟo ǝᵷuɐɹ ʇɔǝuuoɔ-oʇnɐ ǝɥʇ sꞁoɹʇuoƆ",
+  "anvilcraft_pullwires.configuration.power_link.auto_connect_range.tooltip": "\nǝᵷuɐɹ uʍo s,ǝꞁod ǝɥʇ ʎq uᴉoɾ ʎꞁuo ꞁꞁᴉʇs sǝᵷɐɹoʇs puɐ sɹǝɯnsuoɔ 'sɹoʇɐɹǝuǝᵷ\n:ɹǝʍod ʎꞁddns ⟘ON sǝop ǝᵷuɐɹ sᴉɥʇ ʇnq 'pᴉɹᵷ ǝɯɐs ǝɥʇ uᴉoɾ ǝᵷuɐɹ sᴉɥʇ uᴉɥʇᴉʍ sǝꞁoԀ\nᵷᴉɟuoɔ s,ʇɟɐɹƆꞁᴉʌuⱯ ɯoɹɟ ǝᵷuɐɹ uʍo s,ǝꞁod ǝɥʇ xϛ˙⥝ oʇ sʇꞁnɐɟǝᗡ\n(ǝɔuɐʇsᴉp ǝuᴉꞁ-ʇɥᵷᴉɐɹʇs 'sʞɔoꞁq uᴉ) sǝꞁoԀ uoᴉssᴉɯsuɐɹ⟘ ɟo ǝᵷuɐɹ ʇɔǝuuoɔ-oʇnɐ ǝɥʇ sꞁoɹʇuoƆ",
   "anvilcraft_pullwires.configuration.power_link.button": "ʞuᴉꞀ ɹǝʍoԀ",
   "anvilcraft_pullwires.configuration.power_link.cancel_distance_multiplier": "ɹǝᴉꞁdᴉʇꞁnW ǝɔuɐʇsᴉᗡ ꞁǝɔuɐƆ",
   "anvilcraft_pullwires.configuration.power_link.cancel_distance_multiplier.tooltip": "\npǝɹɐǝꞁɔ sᴉ ǝʇɐʇs ᵷuᴉpuǝd ǝɥʇ 'ǝnꞁɐʌ sᴉɥʇ * ǝᵷuɐᴚʇɔǝuuoƆꞁɐnuɐɯ puoʎǝq sǝoᵷ ɯᴉɐ ǝɥʇ ǝɔuO\n(ǝᵷuɐᴚʇɔǝuuoƆꞁɐnuɐɯ ɟo ɹǝᴉꞁdᴉʇꞁnɯ) pǝddoɹp sᴉ uoᴉʇɔǝuuoɔ ꞁɐnuɐɯ ᵷuᴉpuǝd ɐ uǝɥʍ sꞁoɹʇuoƆ",
   "anvilcraft_pullwires.configuration.power_link.manual_connect_range": "ǝᵷuɐᴚ ʇɔǝuuoƆ ꞁɐnuɐW",
-  "anvilcraft_pullwires.configuration.power_link.manual_connect_range.tooltip": "\nsǝxoq ᵷuᴉpunoq uǝǝʍʇǝq ʇou 'sǝꞁod oʍʇ ǝɥʇ ɟo sʇuǝɯᵷǝs doʇ ǝɥʇ uǝǝʍʇǝq pǝɹnsɐǝW\n(sʞɔoꞁq uᴉ) uoᴉʇɔǝuuoɔ ꞁɐnuɐɯ ɐ ɟo ǝɔuɐʇsᴉp ǝuᴉꞁ-ʇɥᵷᴉɐɹʇs ɯnɯᴉxɐɯ ǝɥʇ sꞁoɹʇuoƆ",
+  "anvilcraft_pullwires.configuration.power_link.manual_connect_range.tooltip": "\nsǝxoq ᵷuᴉpunoq uǝǝʍʇǝq ʇou 'sǝꞁod oʍʇ ǝɥʇ ɟo sʇuǝɯᵷǝs doʇ ǝɥʇ uǝǝʍʇǝq pǝɹnsɐǝW\nᵷᴉɟuoɔ s,ʇɟɐɹƆꞁᴉʌuⱯ ɯoɹɟ ǝᵷuɐɹ uʍo s,ǝꞁod ǝɥʇ xᘔ oʇ sʇꞁnɐɟǝᗡ\n(sʞɔoꞁq uᴉ) uoᴉʇɔǝuuoɔ ꞁɐnuɐɯ ɐ ɟo ǝɔuɐʇsᴉp ǝuᴉꞁ-ʇɥᵷᴉɐɹʇs ɯnɯᴉxɐɯ ǝɥʇ sꞁoɹʇuoƆ",
   "anvilcraft_pullwires.configuration.power_link.pole_default_priority": "ʎʇᴉɹoᴉɹԀ ʇꞁnɐɟǝᗡ ǝꞁoԀ",
   "anvilcraft_pullwires.configuration.power_link.pole_default_priority.tooltip": "\nɹǝʇɐꞁ pǝʌɹǝs sᴉ puɐ ɹǝᴉꞁɹɐǝ ʎɐʍɐ ɹǝʍod sǝʌᴉᵷ ʇᴉ :snoɹǝuǝᵷ ǝɹoɯ sᴉ ʎʇᴉɹoᴉɹd ɹǝʍoꞀ\n(ϛ⥝-0) sǝꞁoԀ uoᴉssᴉɯsuɐɹ⟘ pǝɔɐꞁd ʎꞁʍǝu ɟo ʎʇᴉɹoᴉɹd ʇuǝɯǝꞁʇʇǝs ǝɥʇ sꞁoɹʇuoƆ",
   "anvilcraft_pullwires.configuration.power_link.tooltip": "sʞuᴉꞁ pᴉɹᵷ ɹǝʍod oʇ pǝʇɐꞁǝɹ sᵷuᴉʇʇǝs sʇsnɾpⱯ",
@@ -33,11 +33,12 @@
   "dimension.minecraft.overworld": "pꞁɹoʍɹǝʌO",
   "dimension.minecraft.the_end": "puƎ ǝɥ⟘",
   "dimension.minecraft.the_nether": "ɹǝɥʇǝN ǝɥ⟘",
+  "hud.anvilcraft_pullwires.manual_link.distance": "%s / %s ǝɔuɐʇsᴉp ʇɔǝuuoƆ",
   "itemGroup.anvilcraft_pullwires.addon_items": "sǝɹᴉM ꞁꞁnԀ :ʇɟɐɹƆꞁᴉʌuⱯ",
   "key.anvilcraft_pullwires.manual_link": "ʞuᴉꞁ ꞁɐnuɐW",
   "key.categories.anvilcraft_pullwires": "sǝɹᴉM ꞁꞁnԀ",
   "message.anvilcraft_pullwires.manual.cancelled": "pǝꞁꞁǝɔuɐɔ ʞuᴉꞁ ᵷuᴉpuǝԀ",
-  "message.anvilcraft_pullwires.manual.connected": "%s oʇ pǝʞuᴉꞀ",
+  "message.anvilcraft_pullwires.manual.connected": "pǝʇɐǝɹɔ ʞuᴉꞀ",
   "message.anvilcraft_pullwires.manual.started": "ʞuᴉꞁ oʇ ǝᵷuɐɹ uᴉɥʇᴉʍ ǝꞁoԀ uoᴉssᴉɯsuɐɹ⟘ ɐ ǝɔɐꞁd ⸵%s oʇ ʇǝs ɹǝʇsɐW",
   "message.anvilcraft_pullwires.manual.too_far": "(sʞɔoꞁq %s / %s) ǝᵷuɐɹ ʇɔǝuuoɔ ꞁɐnuɐɯ ɟo ʇnO"
 }

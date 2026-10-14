@@ -39,11 +39,11 @@ public abstract class PowerGridMixin {
         Set<IPowerComponent> neighbours = this.connections.get(component);
         if (neighbours == null) return;
 
-        PowerLinkRule.Box candidate = PowerLinkConnectivityChecker.linkBox(component);
+        PowerLinkRule.LinkNode candidate = PowerLinkConnectivityChecker.linkNode(component);
         for (IPowerComponent other : ((PowerGrid) (Object) this).getComponents()) {
             if (other == component) continue;
             if (other.getComponentType() != PowerComponentType.TRANSMITTER) continue;
-            if (!candidate.intersects(PowerLinkConnectivityChecker.linkBox(other))) continue;
+            if (!PowerLinkRule.linked(candidate, PowerLinkConnectivityChecker.linkNode(other))) continue;
             neighbours.add(other);
             this.connections.computeIfAbsent(other, ignored -> new HashSet<>()).add(component);
         }
