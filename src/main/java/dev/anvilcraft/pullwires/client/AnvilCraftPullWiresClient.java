@@ -10,6 +10,5 @@ import net.neoforged.fml.common.Mod;
 public class AnvilCraftPullWiresClient {
     public AnvilCraftPullWiresClient(IEventBus modBus, ModContainer container) {
         modBus.addListener(AddonKeyMappings::register);
-        modBus.addListener(ManualLinkHud::register);
     }
 }

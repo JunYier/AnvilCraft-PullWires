@@ -250,11 +250,20 @@ public class WireLinkRegistry extends SavedData {
         return codec.parse(NbtOps.INSTANCE, tag).result();
     }
 
-    /** 存档中的一根杆配置条目。 */
-    private record PoleEntry(PoleKey key, PoleConfig config) {
-        static final Codec<PoleEntry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+    /** 存档中的一根杆配置条目。对外公开是因为客户端同步也要用它。 */
+    public record PoleEntry(PoleKey key, PoleConfig config) {
+        public static final Codec<PoleEntry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             PoleKey.CODEC.fieldOf("key").forGetter(PoleEntry::key),
             PoleConfig.CODEC.fieldOf("config").forGetter(PoleEntry::config)
         ).apply(instance, PoleEntry::new));
+    }
+
+    /** 全部杆配置，供客户端同步使用。 */
+    public List<PoleEntry> poleEntries() {
+        List<PoleEntry> entries = new ArrayList<>(this.poleConfigs.size());
+        for (Map.Entry<PoleKey, PoleConfig> entry : this.poleConfigs.entrySet()) {
+            entries.add(new PoleEntry(entry.getKey(), entry.getValue()));
+        }
+        return entries;
     }
 }

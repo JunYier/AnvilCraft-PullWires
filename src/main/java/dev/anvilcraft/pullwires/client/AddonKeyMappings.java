@@ -8,16 +8,28 @@ import net.neoforged.neoforge.common.util.Lazy;
 import org.lwjgl.glfw.GLFW;
 
 public class AddonKeyMappings {
-    /** 手动连接热键，默认左 Ctrl；与本体 building rod 的同键位不冲突（触发条件不同）。 */
-    public static final Lazy<KeyMapping> MANUAL_LINK = Lazy.of(() -> new KeyMapping(
-        "key.anvilcraft_pullwires.manual_link",
-        KeyConflictContext.IN_GAME,
-        Type.KEYSYM,
-        GLFW.GLFW_KEY_LEFT_CONTROL,
-        "key.categories.anvilcraft_pullwires"
+    /** 手动连接：手持输电杆时按住它右键已放置的杆。 */
+    public static final Lazy<KeyMapping> MANUAL_LINK = Lazy.of(() -> register(
+        "manual_link", GLFW.GLFW_KEY_LEFT_CONTROL
+    ));
+
+    /** 优先级调整：手持铁砧锤时按住它滚动滚轮。 */
+    public static final Lazy<KeyMapping> PRIORITY_ADJUST = Lazy.of(() -> register(
+        "priority_adjust", GLFW.GLFW_KEY_LEFT_CONTROL
     ));
 
     public static void register(RegisterKeyMappingsEvent event) {
         event.register(MANUAL_LINK.get());
+        event.register(PRIORITY_ADJUST.get());
+    }
+
+    private static KeyMapping register(String name, int defaultKey) {
+        return new KeyMapping(
+            "key.anvilcraft_pullwires." + name,
+            KeyConflictContext.IN_GAME,
+            Type.KEYSYM,
+            defaultKey,
+            "key.categories.anvilcraft_pullwires"
+        );
     }
 }

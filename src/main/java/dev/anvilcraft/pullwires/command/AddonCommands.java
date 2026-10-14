@@ -88,7 +88,7 @@ public final class AddonCommands {
         PoleKey master = PoleKey.of(level, topA);
         PoleKey slave = PoleKey.of(level, topB);
         registry.createLink(master, slave);
-        AddonNetwork.broadcastLinks(source.getServer());
+        AddonNetwork.broadcastRegistry(source.getServer());
 
         send(source, prefix().append(translatable("link.created", ChatFormatting.WHITE)));
         send(source, Component.translatable(
@@ -120,7 +120,7 @@ public final class AddonCommands {
             if (direct || reversed) affected.add(definition.id());
         }
         for (UUID id : affected) registry.removeLink(id);
-        if (!affected.isEmpty()) AddonNetwork.broadcastLinks(source.getServer());
+        if (!affected.isEmpty()) AddonNetwork.broadcastRegistry(source.getServer());
 
         int removed = affected.size();
         send(source, prefix().append(removed == 0
@@ -157,7 +157,7 @@ public final class AddonCommands {
         WireLinkRegistry registry = WireLinkRegistry.get(source.getServer());
         List<UUID> affected = registry.links().stream().map(LinkDefinition::id).toList();
         for (UUID id : affected) registry.removeLink(id);
-        if (!affected.isEmpty()) AddonNetwork.broadcastLinks(source.getServer());
+        if (!affected.isEmpty()) AddonNetwork.broadcastRegistry(source.getServer());
         send(source, prefix().append(translatable("clear.done", ChatFormatting.WHITE, number(affected.size()))));
         return affected.size();
     }

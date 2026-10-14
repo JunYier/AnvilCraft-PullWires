@@ -10,8 +10,11 @@ import dev.anvilcraft.pullwires.init.AddonBlocks;
 import dev.anvilcraft.pullwires.init.AddonItemGroups;
 import dev.anvilcraft.pullwires.init.AddonItems;
 import dev.anvilcraft.pullwires.network.AddonNetwork;
+import dev.anvilcraft.pullwires.power.link.PoleHammerBehavior;
 import dev.anvilcraft.pullwires.power.link.PowerLinkConnectivityChecker;
+import dev.dubhe.anvilcraft.api.hammer.HammerManager;
 import dev.dubhe.anvilcraft.api.power.ConnectivityChecker;
+import dev.dubhe.anvilcraft.init.block.ModBlocks;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -31,6 +34,9 @@ public class AnvilCraftPullWires {
         ConnectivityChecker.register(PowerLinkConnectivityChecker.INSTANCE);
         NeoForge.EVENT_BUS.addListener(AddonCommands::register);
         modEventBus.addListener(AddonNetwork::register);
+        // 铁砧锤右键输电杆 → 切换锁定。必须在本体 HammerManager.register()（服务器启动时）之前登记。
+        HammerManager.registerChange(() -> ModBlocks.TRANSMISSION_POLE.get(), PoleHammerBehavior.INSTANCE);
+        HammerManager.registerChange(() -> ModBlocks.REMOTE_TRANSMISSION_POLE.get(), PoleHammerBehavior.INSTANCE);
 
         AddonItemGroups.register(modEventBus);
         AddonBlocks.register();

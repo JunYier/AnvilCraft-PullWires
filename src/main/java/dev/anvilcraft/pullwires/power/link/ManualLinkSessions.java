@@ -10,10 +10,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.server.level.ServerBossEvent;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.BossEvent;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
@@ -54,6 +56,9 @@ public final class ManualLinkSessions {
     /** 玩家 UUID → 主端坐标。 */
     private static final Map<UUID, PoleKey> PENDING = new HashMap<>();
 
+    /** 玩家 UUID → 距离 Boss 条。只发给该玩家自己。 */
+    private static final Map<UUID, ServerBossEvent> BARS = new HashMap<>();
+
     private ManualLinkSessions() {
     }
 
@@ -70,6 +75,7 @@ public final class ManualLinkSessions {
         clearGlint(player);
         setGlint(player.getMainHandItem(), true);
         syncPending(player, top);
+        showBar(player);
         player.displayClientMessage(
             message("manual.started", poleText(master)).withStyle(ChatFormatting.GOLD),
             true
@@ -82,6 +88,7 @@ public final class ManualLinkSessions {
         if (PENDING.remove(player.getUUID()) == null) return;
         clearGlint(player);
         syncPending(player, null);
+        hideBar(player);
         if (announce) {
             player.displayClientMessage(message("manual.cancelled").withStyle(ChatFormatting.GRAY), true);
         }
@@ -106,6 +113,7 @@ public final class ManualLinkSessions {
         refreshGlint(player);
 
         double distance = aimDistance(player, master);
+        updateBar(player, distance);
         if (feedback(distance) != ManualLinkFeedback.CANCEL) return;
         cancel(player, false);
         playCancelSound(player);
@@ -154,7 +162,8 @@ public final class ManualLinkSessions {
                 PENDING.remove(player.getUUID());
                 clearGlint(player);
                 syncPending(player, null);
-                AddonNetwork.broadcastLinks(player.server);
+                hideBar(player);
+                AddonNetwork.broadcastRegistry(player.server);
                 player.displayClientMessage(
                     message("manual.connected").withStyle(ChatFormatting.GREEN),
                     false
@@ -166,6 +175,56 @@ public final class ManualLinkSessions {
     /** 退出世界时清空。 */
     public static void clearAll() {
         PENDING.clear();
+        // 玩家已经离线，不需要再发包。
+        BARS.clear();
+    }
+
+    // ------------------------------------------------------------------ Boss 条
+
+    /**
+     * 连接距离的 Boss 条。
+     *
+     * <p>前 {@link ManualLinkRule#GREEN_SEGMENT_END} 是绿色（还在手动连接范围内），
+     * 后 1/4 转红（已超出、正在逼近断开），两段各自线性、斜率不同。到达断开距离时
+     * 由 {@link #tick} 清掉待连接状态，Boss 条随之消失。</p>
+     *
+     * <p>用原版 {@link ServerBossEvent} 只发给本人，不需要任何客户端 Mixin。</p>
+     */
+    private static void showBar(ServerPlayer player) {
+        hideBar(player);
+        ServerBossEvent bar = new ServerBossEvent(
+            Component.translatable("bossbar.anvilcraft_pullwires.manual_link"),
+            BossEvent.BossBarColor.GREEN,
+            BossEvent.BossBarOverlay.PROGRESS
+        );
+        bar.setProgress(0.0F);
+        bar.addPlayer(player);
+        BARS.put(player.getUUID(), bar);
+    }
+
+    private static void updateBar(ServerPlayer player, double distance) {
+        ServerBossEvent bar = BARS.get(player.getUUID());
+        if (bar == null) return;
+
+        int range = AnvilCraftPullWires.CONFIG.powerLink.manualConnectRange;
+        double multiplier = AnvilCraftPullWires.CONFIG.powerLink.cancelDistanceMultiplier;
+        boolean inRange = distance <= range;
+
+        bar.setProgress(ManualLinkRule.barProgress(distance, range, multiplier));
+        bar.setColor(inRange ? BossEvent.BossBarColor.GREEN : BossEvent.BossBarColor.RED);
+        bar.setName(Component.translatable(
+            "bossbar.anvilcraft_pullwires.manual_link",
+            Component.literal(format(distance)).withStyle(inRange ? ChatFormatting.GREEN : ChatFormatting.RED),
+            Component.literal(String.valueOf(range)).withStyle(ChatFormatting.GRAY),
+            Component.literal(format(range * multiplier)).withStyle(ChatFormatting.DARK_RED)
+        ));
+    }
+
+    private static void hideBar(ServerPlayer player) {
+        ServerBossEvent bar = BARS.remove(player.getUUID());
+        if (bar == null) return;
+        bar.setVisible(false);
+        bar.removeAllPlayers();
     }
 
     // ------------------------------------------------------------------ 内部

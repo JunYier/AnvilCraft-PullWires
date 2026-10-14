@@ -24,29 +24,33 @@ public final class AddonNetwork {
             CancelManualLinkPacket.STREAM_CODEC,
             CancelManualLinkPacket::handle
         );
+        registrar.playToServer(
+            AdjustPriorityPacket.TYPE,
+            AdjustPriorityPacket.STREAM_CODEC,
+            AdjustPriorityPacket::handle
+        );
         registrar.playToClient(
             SyncPendingLinkPacket.TYPE,
             SyncPendingLinkPacket.STREAM_CODEC,
             SyncPendingLinkPacket::handle
         );
         registrar.playToClient(
-            SyncManualLinksPacket.TYPE,
-            SyncManualLinksPacket.STREAM_CODEC,
-            SyncManualLinksPacket::handle
+            SyncRegistryPacket.TYPE,
+            SyncRegistryPacket.STREAM_CODEC,
+            SyncRegistryPacket::handle
         );
     }
 
-    /** 链路定义发生变化时广播给所有人；客户端要靠它把手动连接的电力线画出来。 */
-    public static void broadcastLinks(MinecraftServer server) {
+    /** 注册表发生变化时广播；客户端要靠它画手动电力线、显示实时优先级。 */
+    public static void broadcastRegistry(MinecraftServer server) {
         if (server == null) return;
-        PacketDistributor.sendToAllPlayers(SyncManualLinksPacket.of(WireLinkRegistry.get(server).links()));
+        WireLinkRegistry registry = WireLinkRegistry.get(server);
+        PacketDistributor.sendToAllPlayers(SyncRegistryPacket.of(registry.links(), registry.poleEntries()));
     }
 
     /** 玩家刚进服务器时单独推一份。 */
-    public static void sendLinks(ServerPlayer player) {
-        PacketDistributor.sendToPlayer(
-            player,
-            SyncManualLinksPacket.of(WireLinkRegistry.get(player.server).links())
-        );
+    public static void sendRegistry(ServerPlayer player) {
+        WireLinkRegistry registry = WireLinkRegistry.get(player.server);
+        PacketDistributor.sendToPlayer(player, SyncRegistryPacket.of(registry.links(), registry.poleEntries()));
     }
 }

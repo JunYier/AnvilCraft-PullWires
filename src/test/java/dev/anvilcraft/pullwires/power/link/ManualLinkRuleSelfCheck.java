@@ -37,6 +37,31 @@ public final class ManualLinkRuleSelfCheck {
         expectWithMultiplier("倍数 1.0 时恰好等于范围仍在范围内", ManualLinkFeedback.IN_RANGE, RANGE, 1.0);
         expectWithMultiplier("倍数 1.0 时刚超出即放弃", ManualLinkFeedback.CANCEL, RANGE + 0.1, 1.0);
 
+        // Boss 条：0 → 3/4 走完连接范围，剩下的 1/4 走「超出到断开」，两段各自线性。
+        expectProgress("起点为 0", 0.0F, 0);
+        expectProgress("连接范围一半 = 3/8", 0.375F, RANGE * 0.5);
+        expectProgress("恰好到连接范围 = 3/4", ManualLinkRule.GREEN_SEGMENT_END, RANGE);
+        expectProgress("超出段中点 = 7/8", 0.875F, RANGE * 1.5);
+        expectProgress("恰好到放弃距离 = 满", 1.0F, RANGE * MULTIPLIER);
+        expectProgress("超过放弃距离仍夹在满", 1.0F, 10_000);
+
+        // 两段斜率必须不同：同样走半个连接范围，绿色段占 3/8 条、红色段只占 1/8 条。
+        // 也就是说绿色段每格走得更快——这正是「两段之间不线性」的含义。
+        float greenStep = ManualLinkRule.barProgress(RANGE * 0.5, RANGE, MULTIPLIER)
+                          - ManualLinkRule.barProgress(0, RANGE, MULTIPLIER);
+        float redStep = ManualLinkRule.barProgress(RANGE * 1.5, RANGE, MULTIPLIER)
+                        - ManualLinkRule.barProgress(RANGE, RANGE, MULTIPLIER);
+        assertions++;
+        if (Math.abs(greenStep - redStep) < 1.0E-4F) {
+            failures++;
+            System.out.println("[pullwires] FAIL 两段斜率相同的话就不是分段线性了");
+        }
+        assertions++;
+        if (greenStep <= redStep) {
+            failures++;
+            System.out.println("[pullwires] FAIL 绿色段覆盖 3/4 条、红色段只覆盖 1/4 条，绿色段每格应走得更快");
+        }
+
         if (failures == 0) {
             System.out.println("[pullwires] ManualLinkRule ok (" + assertions + " assertions)");
         } else {
@@ -55,6 +80,14 @@ public final class ManualLinkRuleSelfCheck {
         assertions++;
         ManualLinkFeedback actual = ManualLinkRule.feedback(distance, RANGE, multiplier);
         if (actual == expected) return;
+        failures++;
+        System.out.println("[pullwires] FAIL " + name + "：期望 " + expected + "，实际 " + actual);
+    }
+
+    private static void expectProgress(String name, float expected, double distance) {
+        assertions++;
+        float actual = ManualLinkRule.barProgress(distance, RANGE, MULTIPLIER);
+        if (Math.abs(actual - expected) < 1.0E-4F) return;
         failures++;
         System.out.println("[pullwires] FAIL " + name + "：期望 " + expected + "，实际 " + actual);
     }

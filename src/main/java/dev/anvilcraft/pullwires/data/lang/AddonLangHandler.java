@@ -43,10 +43,21 @@ public class AddonLangHandler {
         provider.add("message.anvilcraft_pullwires.manual.too_far", "Out of manual connect range (%s / %s blocks)");
         provider.add("message.anvilcraft_pullwires.manual.connected", "Link created");
         provider.add("message.anvilcraft_pullwires.manual.cancelled", "Pending link cancelled");
-        provider.add("hud.anvilcraft_pullwires.manual_link.distance", "Connect distance %s / %s");
+        provider.add("message.anvilcraft_pullwires.priority.changed", "Priority %s -> %s");
+        provider.add("message.anvilcraft_pullwires.priority.limit", "Priority is already %s (range 0-15)");
+        provider.add("message.anvilcraft_pullwires.lock.locked", "Locked: this pole ignores redstone switching");
+        provider.add("message.anvilcraft_pullwires.lock.unlocked", "Unlocked: this pole follows redstone again");
+
+        provider.add("tooltip.anvilcraft_pullwires.title", "Pull Wires");
+        provider.add("tooltip.anvilcraft_pullwires.priority", "Priority %s %s");
+        provider.add("tooltip.anvilcraft_pullwires.locked", "(locked)");
+        provider.add("tooltip.anvilcraft_pullwires.unlocked", "(unlocked)");
+        provider.add("tooltip.anvilcraft_pullwires.pending_master", "Pending master");
+        provider.add("bossbar.anvilcraft_pullwires.manual_link", "Connect distance %s / %s (break at %s)");
 
         provider.add("key.categories.anvilcraft_pullwires", "Pull Wires");
         provider.add("key.anvilcraft_pullwires.manual_link", "Manual link");
+        provider.add("key.anvilcraft_pullwires.priority_adjust", "Adjust priority");
 
         provider.add("dimension.minecraft.overworld", "Overworld");
         provider.add("dimension.minecraft.the_nether", "The Nether");

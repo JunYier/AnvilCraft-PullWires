@@ -60,7 +60,7 @@ public class ManualLinkEvents {
     @SubscribeEvent
     public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            AddonNetwork.sendLinks(player);
+            AddonNetwork.sendRegistry(player);
         }
     }
 
@@ -83,6 +83,6 @@ public class ManualLinkEvents {
         PoleKey key = PoleKey.of(level, top);
         boolean hadLinks = !registry.linksOf(key).isEmpty();
         registry.removePole(key);
-        if (hadLinks) AddonNetwork.broadcastLinks(level.getServer());
+        if (hadLinks) AddonNetwork.broadcastRegistry(level.getServer());
     }
 }

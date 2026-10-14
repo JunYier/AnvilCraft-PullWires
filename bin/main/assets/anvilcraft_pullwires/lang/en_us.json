@@ -33,12 +33,21 @@
   "dimension.minecraft.overworld": "Overworld",
   "dimension.minecraft.the_end": "The End",
   "dimension.minecraft.the_nether": "The Nether",
-  "hud.anvilcraft_pullwires.manual_link.distance": "Connect distance %s / %s",
   "itemGroup.anvilcraft_pullwires.addon_items": "AnvilCraft: Pull Wires",
   "key.anvilcraft_pullwires.manual_link": "Manual link",
+  "key.anvilcraft_pullwires.priority_adjust": "Adjust priority",
   "key.categories.anvilcraft_pullwires": "Pull Wires",
+  "message.anvilcraft_pullwires.lock.locked": "Locked: this pole ignores redstone switching",
+  "message.anvilcraft_pullwires.lock.unlocked": "Unlocked: this pole follows redstone again",
   "message.anvilcraft_pullwires.manual.cancelled": "Pending link cancelled",
   "message.anvilcraft_pullwires.manual.connected": "Link created",
   "message.anvilcraft_pullwires.manual.started": "Master set to %s; place a Transmission Pole within range to link",
-  "message.anvilcraft_pullwires.manual.too_far": "Out of manual connect range (%s / %s blocks)"
+  "message.anvilcraft_pullwires.manual.too_far": "Out of manual connect range (%s / %s blocks)",
+  "message.anvilcraft_pullwires.priority.changed": "Priority %s -> %s",
+  "message.anvilcraft_pullwires.priority.limit": "Priority is already %s (range 0-15)",
+  "tooltip.anvilcraft_pullwires.locked": "(locked)",
+  "tooltip.anvilcraft_pullwires.pending": "Connect distance %s / %s",
+  "tooltip.anvilcraft_pullwires.priority": "Priority %s %s",
+  "tooltip.anvilcraft_pullwires.title": "Pull Wires",
+  "tooltip.anvilcraft_pullwires.unlocked": "(unlocked)"
 }

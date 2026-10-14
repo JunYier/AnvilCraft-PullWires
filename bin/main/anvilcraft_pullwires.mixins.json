@@ -9,6 +9,7 @@
     "PowerGridMixin"
   ],
   "client": [
+    "client.HudTooltipManagerMixin",
     "client.SimplePowerGridMixin"
   ],
   "injectors": {
