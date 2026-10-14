@@ -51,5 +51,50 @@ public class AddonConfig {
         )
         @BoundedDiscrete(min = PolePriority.MIN, max = PolePriority.MAX)
         public int poleDefaultPriority = PolePriority.DEFAULT;
+
+        @Comment(
+            """
+            Deficit circuit breaker threshold, in ticks (0 = never auto-suspend)
+            When the master pole's grid stays in deficit for this long, its links are suspended
+            Links are shed by average net outflow, highest first, re-checked after each shed
+            """
+        )
+        @BoundedDiscrete(min = 0, max = 72000)
+        public int manualLinkDeficitTicks = 300;
+
+        @Comment(
+            """
+            Reconnect cooldown after a link was suspended, in ticks
+            During the cooldown the slave's reconnect requests are not considered
+            """
+        )
+        @BoundedDiscrete(min = 0, max = 7200)
+        public int manualLinkReconnectCooldown = 100;
+
+        @Comment(
+            """
+            How long the slave's grid must keep working before it may request a reconnect, in ticks
+            This is the "grid is stable" test
+            """
+        )
+        @BoundedDiscrete(min = 1, max = 1200)
+        public int reconnectStableTicks = 100;
+
+        @Comment(
+            """
+            How often a stable slave grid requests a reconnect, in ticks
+            """
+        )
+        @BoundedDiscrete(min = 20, max = 7200)
+        public int reconnectRequestInterval = 100;
+
+        @Comment(
+            """
+            Whether flipping a pole's SWITCH from OFF to ON resets its runtime values
+            and restores its suspended links, keeping the link definitions intact
+            This is the "switch restart" semantics
+            """
+        )
+        public boolean switchRestartResetsRuntime = true;
     }
 }

@@ -59,14 +59,8 @@ public class PoleHammerBehavior implements dev.dubhe.anvilcraft.api.hammer.IHamm
         }
         registry.setPriority(key, updated);
         AddonNetwork.broadcastRegistry(player.server);
-        player.displayClientMessage(
-            message(
-                "priority.changed",
-                Component.literal(String.valueOf(previous)).withStyle(ChatFormatting.YELLOW),
-                Component.literal(String.valueOf(updated)).withStyle(ChatFormatting.GREEN)
-            ).withStyle(ChatFormatting.WHITE),
-            true
-        );
+        // 不再打印「优先级 7 → 8」的动作条消息：目标杆的实时数值由铁砧锤 tooltip 承担，
+        // 每滚一格刷一条消息只会淹没聊天栏。
     }
 
     // ------------------------------------------------------------------ 右键切锁定

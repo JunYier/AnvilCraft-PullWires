@@ -1,14 +1,18 @@
 package dev.anvilcraft.pullwires.power.link;
 
+import dev.anvilcraft.pullwires.AnvilCraftPullWires;
 import dev.dubhe.anvilcraft.api.power.IPowerComponent;
 import dev.dubhe.anvilcraft.api.power.PowerGrid;
+import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +34,10 @@ import java.util.Map;
  * <h2>控制环与一拍延迟</h2>
  * <p>结算基于「本拍 flush 出来的自有余量」，结果供下一拍 flush 使用，存在一拍延迟。
  * 这正是真实电力系统的做法，且电网本来就是每 {@code powerGridTick} 拍才算一次，感知不到。</p>
+ *
+ * <h2>M8：亏电断路 / 重连申请 / 开关重启</h2>
+ * <p>三者都在本类的每拍结算里顺次执行，顺序是：<b>观察开关跃变 → 更新链路状态 → 结算 →
+ * 更新净流出窗口 → 亏电断路 → 重连裁决</b>。</p>
  */
 public final class PowerInterconnectManager {
     /** 本拍各电网 flush 出来的<b>自有</b>余量（不含我们注入的增量）。 */
@@ -66,21 +74,35 @@ public final class PowerInterconnectManager {
         if (server == null || !isSettlementTick(server)) return;
 
         WireLinkRegistry registry = WireLinkRegistry.get(server);
+        observeSwitchRestarts(server, registry);
+
         List<PowerGrid> nodes = new ArrayList<>();
         List<Integer> balances = new ArrayList<>();
         Map<PowerGrid, Integer> nodeIds = new IdentityHashMap<>();
         List<InterconnectSettlement.Link> links = new ArrayList<>();
         List<LinkDefinition> settled = new ArrayList<>();
+        List<PowerGrid> settledMasters = new ArrayList<>();
+        List<PowerGrid> settledSlaves = new ArrayList<>();
 
         for (LinkDefinition definition : registry.links()) {
             PowerGrid masterGrid = findGrid(server, definition.master());
             PowerGrid slaveGrid = findGrid(server, definition.slave());
-            if (masterGrid == null || slaveGrid == null || masterGrid == slaveGrid) {
-                // 任一端未入网（杆被关掉、区块卸载、或两端本来就在同一座电网里）。
-                registry.setState(definition.id(), LinkState.INACTIVE);
+            boolean bothOnline = masterGrid != null && slaveGrid != null && masterGrid != slaveGrid;
+            LinkState state = registry.stateOf(definition.id());
+
+            // 挂起 / 待批准不会被「离线又上线」自动解除：必须走重连裁决或开关重启。
+            // 否则一条被亏电断路器掐掉的链路，会在任一端区块重载时悄悄复活。
+            if (state == LinkState.SUSPENDED || state == LinkState.PENDING) {
+                registry.linkRuntime(definition.id()).push(0);
                 continue;
             }
-            registry.setState(definition.id(), LinkState.ACTIVE);
+
+            registry.setState(definition.id(), bothOnline ? LinkState.ACTIVE : LinkState.INACTIVE);
+            if (!bothOnline) {
+                registry.linkRuntime(definition.id()).push(0);
+                continue;
+            }
+
             links.add(new InterconnectSettlement.Link(
                 links.size(),
                 nodeId(masterGrid, nodeIds, nodes, balances),
@@ -88,31 +110,188 @@ public final class PowerInterconnectManager {
                 registry.config(definition.master()).priority()
             ));
             settled.add(definition);
+            settledMasters.add(masterGrid);
+            settledSlaves.add(slaveGrid);
         }
-
-        if (links.isEmpty()) {
-            DELTAS.clear();
-            return;
-        }
-
-        int[] balanceArray = new int[balances.size()];
-        for (int i = 0; i < balanceArray.length; i++) balanceArray[i] = balances.get(i);
 
         Map<PowerGrid, Integer> deltas = new IdentityHashMap<>();
-        for (InterconnectSettlement.Transfer transfer : InterconnectSettlement.settle(balanceArray, links)) {
-            deltas.merge(nodes.get(transfer.fromNode()), -transfer.amount(), Integer::sum);
-            deltas.merge(nodes.get(transfer.toNode()), transfer.amount(), Integer::sum);
+        if (!links.isEmpty()) {
+            int[] balanceArray = new int[balances.size()];
+            for (int i = 0; i < balanceArray.length; i++) balanceArray[i] = balances.get(i);
+
+            // 先全部记 0，再让真正成交的拍覆盖，这样窗口会自动衰减。
+            for (LinkDefinition definition : settled) {
+                registry.linkRuntime(definition.id()).push(0);
+            }
+
+            for (InterconnectSettlement.Transfer transfer : InterconnectSettlement.settle(balanceArray, links)) {
+                deltas.merge(nodes.get(transfer.fromNode()), -transfer.amount(), Integer::sum);
+                deltas.merge(nodes.get(transfer.toNode()), transfer.amount(), Integer::sum);
+
+                int index = transfer.linkIndex();
+                // 净流出以「主端给出去」为正；主端若是接收方，这条链路记负数。
+                int signed = nodes.get(transfer.fromNode()) == settledMasters.get(index)
+                    ? transfer.amount()
+                    : -transfer.amount();
+                registry.linkRuntime(settled.get(index).id()).push(signed);
+            }
         }
 
         // 整体替换而不是增量更新，这样已经消失的电网不会残留脏数据。
         DELTAS.clear();
         DELTAS.putAll(deltas);
+
+        // 顺序含义：先用「这一拍的实际净流出」更新窗口，再据此决定要不要断开。
+        tickReconnectCooldowns(registry);
+        shedDeficitLinks(server, registry);
+        runReconnect(server, registry);
     }
 
     /** 退出世界时清空，避免跨存档残留。 */
     public static void clear() {
         RAW_BALANCES.clear();
         DELTAS.clear();
+    }
+
+    // ------------------------------------------------------------ M8：开关重启
+
+    /**
+     * 观察所有被链路引用的杆的 {@code SWITCH}，处理 OFF → ON 跃变。
+     *
+     * <p><b>首次观察不算跃变</b>（由 {@link PoleRuntime#observeSwitch} 保证），
+     * 否则每次进游戏都会把所有链路无条件重启，亏电计时永远清零。</p>
+     *
+     * <p>区块未加载时跳过：读未加载区块会强制加载，代价远大于收益。
+     * 这种情况下的状态变化由「电网是否存在」自然反映，只是拿不到「开关重启」这个事件。</p>
+     */
+    private static void observeSwitchRestarts(MinecraftServer server, WireLinkRegistry registry) {
+        if (!AnvilCraftPullWires.CONFIG.powerLink.switchRestartResetsRuntime) return;
+
+        for (PoleKey key : registry.linkedPoles()) {
+            ServerLevel level = server.getLevel(key.dimension());
+            if (level == null || !level.isLoaded(key.pos())) continue;
+            BlockState state = level.getBlockState(key.pos());
+            if (!state.hasProperty(IPowerComponent.SWITCH)) continue;
+            boolean on = state.getValue(IPowerComponent.SWITCH) == IPowerComponent.Switch.ON;
+            if (!registry.observeSwitch(key, on)) continue;
+
+            registry.resetRuntime(key);
+            for (LinkDefinition definition : registry.linksOf(key)) {
+                LinkState linkState = registry.stateOf(definition.id());
+                if (linkState != LinkState.SUSPENDED && linkState != LinkState.PENDING) continue;
+                registry.setState(definition.id(), LinkState.ACTIVE);
+                LinkRuntime runtime = registry.linkRuntime(definition.id());
+                runtime.resetWindow();
+                runtime.setCooldownTicks(0);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------ M8：亏电断路
+
+    /**
+     * 主端连续亏电超过阈值时，按平均净流出降序挂起链路。
+     *
+     * <p><b>为什么用「预测」而不是「重测」</b>：挂起产生的效果要等下一拍 flush 才反映到电网余量上，
+     * 在同一拍里反复读余量永远读到同一个值。所以这里维护一个「剩余缺口」，
+     * 每挂起一条就按它的平均净流出扣减，扣到不为正即停——等价于「每断一条重新评估」。</p>
+     */
+    private static void shedDeficitLinks(MinecraftServer server, WireLinkRegistry registry) {
+        int threshold = AnvilCraftPullWires.CONFIG.powerLink.manualLinkDeficitTicks;
+        if (threshold <= 0) return;
+
+        for (PoleKey master : registry.linkedPoles()) {
+            List<LinkDefinition> mastered = registry.linksMasteredBy(master);
+            if (mastered.isEmpty()) continue;
+
+            PowerGrid grid = findGrid(server, master);
+            PoleRuntime runtime = registry.runtime(master);
+            if (grid == null) {
+                runtime.setDeficitTicks(0);
+                continue;
+            }
+
+            int balance = RAW_BALANCES.getOrDefault(grid, grid.getRemaining());
+            if (balance >= 0) {
+                runtime.setDeficitTicks(0);
+                continue;
+            }
+
+            runtime.setDeficitTicks(runtime.deficitTicks() + PowerGrid.gridInterval());
+            if (runtime.deficitTicks() < threshold) continue;
+
+            List<LinkDefinition> candidates = new ArrayList<>();
+            for (LinkDefinition definition : mastered) {
+                if (registry.stateOf(definition.id()) != LinkState.ACTIVE) continue;
+                if (registry.linkRuntime(definition.id()).averageNetOut() <= 0) continue;
+                candidates.add(definition);
+            }
+            candidates.sort(Comparator
+                .comparingInt((LinkDefinition d) -> registry.linkRuntime(d.id()).averageNetOut())
+                .reversed());
+
+            int remaining = -balance;
+            for (LinkDefinition definition : candidates) {
+                LinkRuntime runtimeLink = registry.linkRuntime(definition.id());
+                int netOut = runtimeLink.averageNetOut();
+                registry.setState(definition.id(), LinkState.SUSPENDED);
+                runtimeLink.setCooldownTicks(AnvilCraftPullWires.CONFIG.powerLink.manualLinkReconnectCooldown);
+                runtimeLink.resetWindow();
+                remaining -= netOut;
+                if (remaining <= 0) break;
+            }
+            // 处理完一轮重新计时，避免下一拍立刻又断一条。
+            runtime.setDeficitTicks(0);
+        }
+    }
+
+    // ------------------------------------------------------------ M8：重连申请
+
+    /**
+     * 从端电网稳定后按周期申请重连，主端不亏电则同意。
+     *
+     * <p>「电网稳定」实现为「从端所在电网连续 {@code reconnectStableTicks} 拍 {@code isWorking()}」，
+     * 期间一旦中断就重新计时。</p>
+     */
+    private static void runReconnect(MinecraftServer server, WireLinkRegistry registry) {
+        int step = PowerGrid.gridInterval();
+        int stableTicks = AnvilCraftPullWires.CONFIG.powerLink.reconnectStableTicks;
+        int requestInterval = Math.max(step, AnvilCraftPullWires.CONFIG.powerLink.reconnectRequestInterval);
+
+        for (LinkDefinition definition : registry.links()) {
+            LinkState state = registry.stateOf(definition.id());
+            if (state != LinkState.SUSPENDED && state != LinkState.PENDING) continue;
+
+            LinkRuntime runtime = registry.linkRuntime(definition.id());
+            if (runtime.cooldownTicks() > 0) continue;
+
+            PowerGrid slaveGrid = findGrid(server, definition.slave());
+            PoleRuntime slaveRuntime = registry.runtime(definition.slave());
+            if (slaveGrid == null || !slaveGrid.isWorking()) {
+                slaveRuntime.setRequestTicks(0);
+                continue;
+            }
+
+            slaveRuntime.setRequestTicks(slaveRuntime.requestTicks() + step);
+            if (slaveRuntime.requestTicks() < stableTicks) continue;
+            if (slaveRuntime.requestTicks() % requestInterval != 0) continue;
+
+            PowerGrid masterGrid = findGrid(server, definition.master());
+            if (masterGrid == null) continue;
+            if (RAW_BALANCES.getOrDefault(masterGrid, masterGrid.getRemaining()) < 0) continue;
+
+            registry.setState(definition.id(), LinkState.ACTIVE);
+            runtime.setCooldownTicks(0);
+            runtime.resetWindow();
+            slaveRuntime.setRequestTicks(0);
+        }
+    }
+
+    private static void tickReconnectCooldowns(WireLinkRegistry registry) {
+        int step = PowerGrid.gridInterval();
+        for (LinkDefinition definition : registry.links()) {
+            registry.linkRuntime(definition.id()).tickCooldown(step);
+        }
     }
 
     // ------------------------------------------------------------ 内部
@@ -145,9 +324,10 @@ public final class PowerInterconnectManager {
     private static @Nullable PowerGrid findGrid(MinecraftServer server, PoleKey key) {
         ServerLevel level = server.getLevel(key.dimension());
         if (level == null) return null;
+        BlockPos pos = key.pos();
         for (PowerGrid grid : PowerGrid.MANAGER.getGridSet(level)) {
             for (IPowerComponent component : grid.getComponents()) {
-                if (component.getPos().equals(key.pos())) return grid;
+                if (component.getPos().equals(pos)) return grid;
             }
         }
         return null;

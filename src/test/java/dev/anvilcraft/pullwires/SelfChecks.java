@@ -2,6 +2,7 @@ package dev.anvilcraft.pullwires;
 
 import dev.anvilcraft.pullwires.power.line.PowerLineLayoutSelfCheck;
 import dev.anvilcraft.pullwires.power.link.InterconnectSettlementSelfCheck;
+import dev.anvilcraft.pullwires.power.link.LinkRuntimeSelfCheck;
 import dev.anvilcraft.pullwires.power.link.ManualLinkRuleSelfCheck;
 import dev.anvilcraft.pullwires.power.link.PoleRuntimeSelfCheck;
 import dev.anvilcraft.pullwires.power.link.PowerLinkRuleSelfCheck;
@@ -23,6 +24,7 @@ public final class SelfChecks {
         failures += PoleRuntimeSelfCheck.run();
         failures += InterconnectSettlementSelfCheck.run();
         failures += ManualLinkRuleSelfCheck.run();
+        failures += LinkRuntimeSelfCheck.run();
 
         if (failures > 0) {
             System.out.println("[pullwires] self-check FAILED: " + failures + " failed assertion(s)");

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -70,6 +71,9 @@ public class WireLinkRegistry extends SavedData {
 
     /** 临时：每条链路的状态。 */
     private final Map<UUID, LinkState> linkStates = new HashMap<>();
+
+    /** 临时：每条链路的净流出窗口与重连冷却。 */
+    private final Map<UUID, LinkRuntime> linkRuntimes = new HashMap<>();
 
     public static WireLinkRegistry get(MinecraftServer server) {
         ServerLevel overworld = Objects.requireNonNull(server.getLevel(Level.OVERWORLD), "overworld");
@@ -148,6 +152,7 @@ public class WireLinkRegistry extends SavedData {
     public void removeLink(UUID id) {
         if (this.links.remove(id) == null) return;
         this.linkStates.remove(id);
+        this.linkRuntimes.remove(id);
         this.setDirty();
     }
 
@@ -185,6 +190,21 @@ public class WireLinkRegistry extends SavedData {
         this.linkStates.put(id, state);
     }
 
+    /** 该链路的运行期数据（净流出窗口、重连冷却），按需创建。 */
+    public LinkRuntime linkRuntime(UUID id) {
+        return this.linkRuntimes.computeIfAbsent(id, ignored -> new LinkRuntime());
+    }
+
+    /** 全部链路的端点集合（去重）。开关跃变只需要观察这些杆。 */
+    public Set<PoleKey> linkedPoles() {
+        Set<PoleKey> result = new LinkedHashSet<>();
+        for (LinkDefinition link : this.links.values()) {
+            result.add(link.master());
+            result.add(link.slave());
+        }
+        return result;
+    }
+
     /** 拆杆或方块被移除时清理：删掉该杆的全部配置、运行时值以及涉及它的链路。 */
     public void removePole(PoleKey key) {
         boolean dirty = this.poleConfigs.remove(key) != null;
@@ -199,6 +219,7 @@ public class WireLinkRegistry extends SavedData {
         for (UUID id : affected) {
             this.links.remove(id);
             this.linkStates.remove(id);
+            this.linkRuntimes.remove(id);
         }
         if (dirty || !affected.isEmpty()) this.setDirty();
     }
@@ -220,6 +241,8 @@ public class WireLinkRegistry extends SavedData {
         this.poleConfigs.clear();
         this.links.clear();
         this.linkStates.clear();
+        this.linkRuntimes.clear();
+        this.poleRuntimes.clear();
 
         for (Tag element : tag.getList(POLES_KEY, Tag.TAG_COMPOUND)) {
             decodeLenient(PoleEntry.CODEC, element).ifPresent(entry -> this.poleConfigs.put(entry.key(), entry.config()));
