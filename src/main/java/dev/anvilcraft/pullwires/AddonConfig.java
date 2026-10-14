@@ -60,6 +60,25 @@ public class AddonConfig {
 
         @Comment(
             """
+            Whether a link may be established between poles that are in different dimensions
+            A link crosses dimensions only when BOTH ends are Cross Dimensional Poles
+            Turn this off to keep them as ordinary no-supply poles that only link within one dimension
+            """
+        )
+        public boolean crossDimensionalPoleEnabled = true;
+
+        @Comment(
+            """
+            Power loss coefficient of a link that crosses dimensions (0.0-1.0)
+            The slave receives amount * (1 - loss); the difference is dissipated and belongs to nobody
+            Applies only when the two ends are in different dimensions
+            """
+        )
+        @BoundedDiscrete(min = 0.0, max = 1.0)
+        public double crossDimensionalPoleLoss = 0.0;
+
+        @Comment(
+            """
             Controls when a pending manual connection is dropped (multiplier of manualConnectRange)
             Once the aim goes beyond manualConnectRange * this value, the pending state is cleared
             """

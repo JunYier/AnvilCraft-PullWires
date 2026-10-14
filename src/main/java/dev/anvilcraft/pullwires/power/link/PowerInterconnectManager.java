@@ -129,16 +129,24 @@ public final class PowerInterconnectManager {
 
             List<InterconnectSettlement.Transfer> transfers =
                 InterconnectSettlement.settle(balanceArray, links);
+            double crossDimensionLoss = AnvilCraftPullWires.CONFIG.transmission.crossDimensionalPoleLoss;
             for (InterconnectSettlement.Transfer transfer : transfers) {
-                deltas.merge(nodes.get(transfer.fromNode()), -transfer.amount(), Integer::sum);
-                deltas.merge(nodes.get(transfer.toNode()), transfer.amount(), Integer::sum);
-
                 int index = transfer.linkIndex();
+                LinkDefinition settledLink = settled.get(index);
+                // 损耗只作用于「真的跨了维度」的那条链路：两端同维度时不存在传送这回事。
+                int delivered = settledLink.master().dimension().equals(settledLink.slave().dimension())
+                    ? transfer.amount()
+                    : InterconnectSettlement.deliveredAmount(transfer.amount(), crossDimensionLoss);
+
+                deltas.merge(nodes.get(transfer.fromNode()), -transfer.amount(), Integer::sum);
+                deltas.merge(nodes.get(transfer.toNode()), delivered, Integer::sum);
+
                 // 净流出以「主端给出去」为正；主端若是接收方，这条链路记负数。
+                // 注意这里记的是**送出量**而不是送达量：损耗从系统里消失，不该记成主端少给了。
                 int signed = nodes.get(transfer.fromNode()) == settledMasters.get(index)
                     ? transfer.amount()
                     : -transfer.amount();
-                registry.linkRuntime(settled.get(index).id()).push(signed);
+                registry.linkRuntime(settledLink.id()).push(signed);
             }
         }
 

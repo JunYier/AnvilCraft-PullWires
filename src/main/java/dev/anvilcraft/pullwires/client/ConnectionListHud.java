@@ -8,7 +8,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -123,9 +123,10 @@ public final class ConnectionListHud {
         int interval = Mth.clamp(AnvilCraftPullWiresClient.CONFIG.ui.particleBeamInterval, 20, 7200);
         if (minecraft.level.getGameTime() % interval != 0) return;
 
-        LocalPlayer player = minecraft.player;
+        ClientLevel level = minecraft.level;
         for (LinkDefinition definition : ManualLinkClientState.links()) {
-            if (!definition.master().dimension().equals(minecraft.level.dimension())) continue;
+            // 与电力线渲染同一份判定：跨维度链路不画，端点涉及跨维度杆的也不画。
+            if (!ClientLinkVisibility.drawsLine(level, definition)) continue;
             Vec3 from = Vec3.atCenterOf(definition.master().pos()).add(0, 1, 0);
             Vec3 to = Vec3.atCenterOf(definition.slave().pos()).add(0, 1, 0);
             int steps = Mth.clamp((int) Math.ceil(from.distanceTo(to) / PARTICLE_SPACING), 2, 128);
@@ -134,7 +135,7 @@ public final class ConnectionListHud {
                 double x = Mth.lerp(t, from.x, to.x);
                 double y = Mth.lerp(t, from.y, to.y);
                 double z = Mth.lerp(t, from.z, to.z);
-                minecraft.level.addParticle(ParticleTypes.ELECTRIC_SPARK, x, y, z, 0.0, 0.0, 0.0);
+                level.addParticle(ParticleTypes.ELECTRIC_SPARK, x, y, z, 0.0, 0.0, 0.0);
             }
         }
     }

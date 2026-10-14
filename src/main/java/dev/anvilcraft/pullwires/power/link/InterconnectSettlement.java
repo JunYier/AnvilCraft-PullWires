@@ -92,4 +92,26 @@ public final class InterconnectSettlement {
         }
         return transfers;
     }
+
+    /**
+     * 跨维度链路的<b>送达量</b>：按损耗系数折算。
+     *
+     * <p>损耗是「真的消失」的那部分功率：主端照常扣掉送出量 {@code amount}，
+     * 从端只收到折算后的量，差额既不退还给主端、也不会跑到别处去。</p>
+     *
+     * <p>系数被夹在 0–1，送达量再夹回 {@code 0..amount}，因此本方法<b>永远不会放大</b>传输量：
+     * 配置写错（负数、大于 1）只会退化成「无损」或「全损」，不会凭空发电。
+     * 舍入用四舍五入——{@code amount} 是整数功率单位，1 的 50% 折算成 1 比 0 更不容易出现
+     * 「明明有电却完全不过去」的错觉。</p>
+     *
+     * @param amount 主端送出的量，非正数一律返回 0
+     * @param loss   损耗系数，0 表示无损
+     */
+    public static int deliveredAmount(int amount, double loss) {
+        if (amount <= 0) return 0;
+        if (!(loss > 0.0)) return amount; // 同时挡住 NaN
+        double kept = 1.0 - Math.min(loss, 1.0);
+        int delivered = (int) Math.round(amount * kept);
+        return Math.max(0, Math.min(amount, delivered));
+    }
 }

@@ -95,5 +95,13 @@ public class AddonClientConfig {
     public static class EffectsSettings {
         @Comment("Controls whether links are visualized with particle beams")
         public boolean linkParticleBeam = true;
+
+        @Comment(
+            """
+            Controls whether connected Cross Dimensional Poles emit portal particles from their top
+            They never draw a power line; the portal particles are how a live cross dimensional link shows itself
+            """
+        )
+        public boolean renderCrossDimensionPortalParticles = true;
     }
 }

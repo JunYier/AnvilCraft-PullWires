@@ -35,8 +35,11 @@ public class AnvilCraftPullWires {
         NeoForge.EVENT_BUS.addListener(AddonCommands::register);
         modEventBus.addListener(AddonNetwork::register);
         // 铁砧锤右键输电杆 → 切换锁定。必须在本体 HammerManager.register()（服务器启动时）之前登记。
+        // 四种杆都要登记：漏掉自己那两种的话，超远程杆与跨维度杆用铁砧锤右键会毫无反应。
         HammerManager.registerChange(() -> ModBlocks.TRANSMISSION_POLE.get(), PoleHammerBehavior.INSTANCE);
         HammerManager.registerChange(() -> ModBlocks.REMOTE_TRANSMISSION_POLE.get(), PoleHammerBehavior.INSTANCE);
+        HammerManager.registerChange(() -> AddonBlocks.ULTRA_LONG_RANGE_POLE.get(), PoleHammerBehavior.INSTANCE);
+        HammerManager.registerChange(() -> AddonBlocks.CROSS_DIMENSIONAL_POLE.get(), PoleHammerBehavior.INSTANCE);
 
         AddonItemGroups.register(modEventBus);
         AddonBlocks.register();

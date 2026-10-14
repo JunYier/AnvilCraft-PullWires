@@ -5,14 +5,15 @@ import dev.anvilcraft.pullwires.network.AddonNetwork;
 import dev.anvilcraft.pullwires.power.link.LinkBinding;
 import dev.anvilcraft.pullwires.power.link.ManualLinkSessions;
 import dev.anvilcraft.pullwires.power.link.PoleKey;
+import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.anvilcraft.pullwires.power.link.WireLinkRegistry;
 import dev.anvilcraft.pullwires.util.PoleResolver;
-import dev.dubhe.anvilcraft.init.block.ModBlocks;
 import dev.dubhe.anvilcraft.item.DiskItem;
 import net.minecraft.ChatFormatting;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.server.level.ServerLevel;
@@ -46,18 +47,30 @@ public class ManualLinkEvents {
     public static void onPlace(BlockEvent.EntityPlaceEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
         if (!(event.getLevel() instanceof ServerLevel level)) return;
-        if (!event.getPlacedBlock().is(ModBlocks.TRANSMISSION_POLE.get())) return;
-        // 两条路径：热键链接状态（onPolePlaced）与副手绑定磁盘（tryOffhandDiskLink）。
+        // 认杆只有一条路（PoleKind），不要在这里再写一遍方块清单：
+        // 之前这里只认本体那两种杆，超远程杆与跨维度杆放下时根本不会触发连接。
+        if (PoleKind.of(event.getPlacedBlock()) == null) return;
+        // 两条路径：链接状态（onPolePlaced）与副手绑定磁盘（tryOffhandDiskLink）。
         // 已在链接状态时后者会自动让位，不会把同一根杆连两次。
         ManualLinkSessions.onPolePlaced(player, level, event.getPos());
     }
 
 
     /**
-     * 右键电线杆：绑定 / 解除绑定（对齐本体定日镜的右键与 shift 右键）。
+     * 右键电线杆：绑定 / 粘贴 / 解除绑定。
      *
      * <p>用官方事件而不是自建 C2S 包——之前走 Ctrl 热键是因为热键是纯客户端状态、
      * 服务端看不到；改用普通右键后，这里能直接看到「点了哪一格、手上拿什么、是否按着 shift」。</p>
+     *
+     * <h2>磁盘的「复制 / 粘贴」</h2>
+     * <p>磁盘与杆物品在这一下右键上<b>刻意不同</b>：</p>
+     * <ul>
+     *   <li><b>杆物品</b>：右键 = 把点击的杆记为新的主端。这是换主端的快捷方式，一次点完。</li>
+     *   <li><b>磁盘</b>：空磁盘右键 = 记下主端（相当于本体磁盘的「复制」）；
+     *       已经记着主端的磁盘右键 = <b>粘贴</b>，即当场把点击的杆连成从端，不再覆盖绑定。
+     *       磁盘本来就是用来把主端「带走」的，走到对端却只能覆盖掉它，等于这一半功能是废的。</li>
+     * </ul>
+     * <p>想让磁盘回到「干净」状态、重新当普通磁盘用：shift 右键解除绑定即可。</p>
      */
     @SubscribeEvent
     public static void onRightClick(PlayerInteractEvent.RightClickBlock event) {
@@ -88,17 +101,32 @@ public class ManualLinkEvents {
         if (top == null) return;
 
         if (player.isShiftKeyDown()) {
+            // 解绑。顺带把「磁盘回到普通磁盘」这条路留在这里。
             LinkBinding.clear(stack);
             player.displayClientMessage(
                 Component.translatable("message.anvilcraft_pullwires.binding.cleared").withStyle(ChatFormatting.GRAY), true
             );
+        } else if (stack.getItem() instanceof DiskItem && LinkBinding.read(stack) != null) {
+            // 粘贴：磁盘已经记着主端，这一下是把点击的杆连成从端。
+            ManualLinkSessions.onPolePasted(player, level, top, stack);
         } else {
-            LinkBinding.bind(stack, PoleKey.of(level, top));
-            player.displayClientMessage(
-                Component.translatable("message.anvilcraft_pullwires.binding.bound").withStyle(ChatFormatting.GOLD), true
-            );
+            // 绑定时连同主端的杆种类一起记住：之后即使玩家跑到别的维度，
+            // 也不必回头读主端那一格的方块状态就能判断距离规则与能否跨维度。
+            LinkBinding.bind(stack, PoleKey.of(level, top), PoleKind.of(level.getBlockState(top)));
+            player.displayClientMessage(boundMessage(stack), true);
         }
         event.setCanceled(true);
+    }
+
+    /** 绑定成功的提示；磁盘额外提示「再右键就是粘贴」。 */
+    private static Component boundMessage(ItemStack stack) {
+        MutableComponent message = Component.translatable("message.anvilcraft_pullwires.binding.bound")
+            .withStyle(ChatFormatting.GOLD);
+        if (stack.getItem() instanceof DiskItem) {
+            message.append(Component.translatable("message.anvilcraft_pullwires.disk.paste_hint")
+                .withStyle(ChatFormatting.GRAY));
+        }
+        return message;
     }
 
 
@@ -136,10 +164,9 @@ public class ManualLinkEvents {
     @SubscribeEvent
     public static void onBreak(BlockEvent.BreakEvent event) {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
-        if (!event.getState().is(ModBlocks.TRANSMISSION_POLE.get())
-            && !event.getState().is(ModBlocks.REMOTE_TRANSMISSION_POLE.get())) {
-            return;
-        }
+        // 同样走 PoleKind：漏掉杆型的话，拆掉超远程杆或跨维度杆会留下指向空气的链路——
+        // 线继续画、结算继续引用、HUD 继续列。
+        if (PoleKind.of(event.getState()) == null) return;
         BlockPos top = PoleResolver.resolveTop(level, event.getPos());
         if (top == null) return;
 

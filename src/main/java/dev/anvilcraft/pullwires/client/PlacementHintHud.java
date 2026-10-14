@@ -3,7 +3,6 @@ package dev.anvilcraft.pullwires.client;
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
 import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
-import dev.dubhe.anvilcraft.init.block.ModBlocks;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -44,10 +43,8 @@ public final class PlacementHintHud {
         if (!AnvilCraftPullWiresClient.CONFIG.graphics.showPolePlacementHint) return;
 
         LocalPlayer player = minecraft.player;
-        if (!player.getMainHandItem().is(ModBlocks.TRANSMISSION_POLE.get().asItem())
-            && !player.getMainHandItem().is(ModBlocks.REMOTE_TRANSMISSION_POLE.get().asItem())) {
-            return;
-        }
+        // 认杆走 PoleKind：这里原本只认本体那两种，导致手持超远程杆 / 跨维度杆时从不显示提示。
+        if (!PoleKind.isPoleItem(player.getMainHandItem())) return;
         if (!(minecraft.hitResult instanceof BlockHitResult hit) || hit.getType() != HitResult.Type.BLOCK) {
             return;
         }

@@ -19,9 +19,12 @@ import java.util.UUID;
 /**
  * 客户端侧的注册表镜像。
  *
- * <p>服务端权威：待连接主端由 {@link dev.anvilcraft.pullwires.network.SyncPendingLinkPacket} 下发，
- * 链路定义与杆配置由 {@link SyncRegistryPacket} 下发。客户端只读它，
- * 用来画粒子束、画手动连接的电力线，以及显示瞄准中那根杆的优先级。</p>
+ * <p>服务端权威：链路定义与杆配置由 {@link SyncRegistryPacket} 下发，每拍的转移量与链路状态由
+ * {@link SyncLinkStatsPacket} 下发。客户端只读它，用来画粒子束、画手动连接的电力线、
+ * 判断跨维度杆的连接态，以及显示瞄准中那根杆的优先级。</p>
+ *
+ * <p>「待连接的主端」<b>不在这里</b>——它写在手持物的绑定数据上（{@code LinkBinding}），
+ * 客户端与服务端读到的是同一份。</p>
  */
 public final class ManualLinkClientState {
     private static List<LinkDefinition> links = List.of();

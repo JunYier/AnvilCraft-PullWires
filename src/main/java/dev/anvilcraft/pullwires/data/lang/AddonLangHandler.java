@@ -51,10 +51,19 @@ public class AddonLangHandler {
         provider.add("message.anvilcraft_pullwires.binding.bound", "Bound to master");
         provider.add("message.anvilcraft_pullwires.binding.cleared", "Binding cleared");
         provider.add("message.anvilcraft_pullwires.disk.bound", "Disk bound to master %s");
+        provider.add("message.anvilcraft_pullwires.disk.paste_hint", " (right-click another pole to paste the link)");
+        provider.add(
+            "message.anvilcraft_pullwires.manual.same_pole",
+            "This pole is the stored master; it cannot be linked to itself"
+        );
         provider.add("message.anvilcraft_pullwires.manual.cancelled", "Pending link cancelled");
         provider.add(
             "message.anvilcraft_pullwires.manual.duplicate_direction",
             "A link in this direction already exists"
+        );
+        provider.add(
+            "message.anvilcraft_pullwires.manual.cross_dimension_denied",
+            "A link may only cross dimensions between two Cross Dimensional Poles"
         );
         provider.add("message.anvilcraft_pullwires.priority.changed", "Priority %s -> %s");
         provider.add("message.anvilcraft_pullwires.priority.limit", "Priority is already %s (range 0-15)");
@@ -68,7 +77,9 @@ public class AddonLangHandler {
         provider.add("tooltip.anvilcraft_pullwires.link.send", "Sending: %s");
         provider.add("tooltip.anvilcraft_pullwires.link.receive", "Receiving: %s");
         provider.add("tooltip.anvilcraft_pullwires.link.priority", "Priority: %s");
-        provider.add("tooltip.anvilcraft_pullwires.locked", "Locked");        provider.add("bossbar.anvilcraft_pullwires.manual_link", "Connect distance %s / %s (break at %s)");
+        provider.add("tooltip.anvilcraft_pullwires.locked", "Locked");
+        provider.add("bossbar.anvilcraft_pullwires.manual_link", "Connect distance %s / %s (break at %s)");
+        provider.add("bossbar.anvilcraft_pullwires.cross_dimension", "Cross dimensional link: no distance limit");
 
         provider.add(
             "command.anvilcraft_pullwires.clear.confirm_hint",

@@ -72,10 +72,31 @@ public enum PoleKind {
         return manualConnectRange(level == null ? null : of(level.getBlockState(pos)));
     }
 
+    /**
+     * 从物品推出杆的种类；不是本模组认得的杆时返回 {@code null}。
+     *
+     * <p>这是「手上拿的是哪种杆」的唯一入口。之前的范围取值方法各自抄了一遍
+     * {@code Block.byItem} + {@code defaultBlockState}，再新增一处就又多一份实现。</p>
+     */
+    public static @Nullable PoleKind kindOfItem(ItemStack stack) {
+        Block block = Block.byItem(stack.getItem());
+        return block == Blocks.AIR ? null : of(block.defaultBlockState());
+    }
+
+    /**
+     * 该种类的杆是否<b>不受连接距离限制</b>。
+     *
+     * <p>目前只有跨维度杆：需求 §5.2 规定它同维度、跨维度都没有距离限制。
+     * 判据取<b>主端</b>的种类——距离量的本来就是「主端到目标点」。
+     * 维度那一侧的准入条件见 {@link CrossDimensionRule#verdict}。</p>
+     */
+    public static boolean unlimitedConnectDistance(@Nullable PoleKind kind) {
+        return kind == CROSS_DIMENSIONAL;
+    }
+
     /** 手持某物品时应当使用的自动连接范围（放置预览用）。 */
     public static int autoConnectRangeOfItem(ItemStack stack) {
-        Block block = Block.byItem(stack.getItem());
-        return autoConnectRange(block == Blocks.AIR ? null : of(block.defaultBlockState()));
+        return autoConnectRange(kindOfItem(stack));
     }
 
 
@@ -86,14 +107,12 @@ public enum PoleKind {
 
     /** 手持某物品时应当使用的手动连接范围（引导带与放置判定共用）。 */
     public static int manualConnectRangeOfItem(ItemStack stack) {
-        Block block = Block.byItem(stack.getItem());
-        return manualConnectRange(block == Blocks.AIR ? null : of(block.defaultBlockState()));
+        return manualConnectRange(kindOfItem(stack));
     }
 
     /** 该物品是不是本模组认得的电线杆（四种都算）。 */
     public static boolean isPoleItem(ItemStack stack) {
-        Block block = Block.byItem(stack.getItem());
-        return block != Blocks.AIR && of(block.defaultBlockState()) != null;
+        return kindOfItem(stack) != null;
     }
 
     /**

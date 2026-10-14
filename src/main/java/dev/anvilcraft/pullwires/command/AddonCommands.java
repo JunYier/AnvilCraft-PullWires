@@ -7,12 +7,8 @@ import dev.anvilcraft.pullwires.network.AddonNetwork;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
 import dev.anvilcraft.pullwires.power.link.LinkState;
 import dev.anvilcraft.pullwires.power.link.PoleKey;
+import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.anvilcraft.pullwires.power.link.WireLinkRegistry;
-import dev.dubhe.anvilcraft.block.RemoteTransmissionPoleBlock;
-import dev.dubhe.anvilcraft.block.TransmissionPoleBlock;
-import dev.dubhe.anvilcraft.block.state.Vertical3PartHalf;
-import dev.dubhe.anvilcraft.block.state.Vertical4PartHalf;
-import dev.dubhe.anvilcraft.init.block.ModBlocks;
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -24,7 +20,6 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.state.BlockState;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -257,19 +252,14 @@ public final class AddonCommands {
      *
      * <p>输电杆只有 {@code HALF == TOP} 那一段的方块实体才是中继元件，链路必须以顶段坐标登记，
      * 否则结算时按坐标匹配电网元件会找不到它。</p>
+     *
+     * <p>认杆走 {@link PoleKind#isHalf}：这里原本又抄了一份「本体那两个方块」的清单，
+     * 于是 {@code /wires link} 根本找不到超远程杆与跨维度杆。</p>
      */
     private static @Nullable BlockPos resolvePoleTop(ServerLevel level, BlockPos pos) {
         for (int dy = -3; dy <= 3; dy++) {
             BlockPos candidate = pos.offset(0, dy, 0);
-            BlockState state = level.getBlockState(candidate);
-            if (state.is(ModBlocks.TRANSMISSION_POLE.get())
-                && state.getValue(TransmissionPoleBlock.HALF) == Vertical3PartHalf.TOP) {
-                return candidate;
-            }
-            if (state.is(ModBlocks.REMOTE_TRANSMISSION_POLE.get())
-                && state.getValue(RemoteTransmissionPoleBlock.HALF) == Vertical4PartHalf.TOP) {
-                return candidate;
-            }
+            if (PoleKind.isHalf(level.getBlockState(candidate), true)) return candidate;
         }
         return null;
     }

@@ -1,17 +1,12 @@
 package dev.anvilcraft.pullwires.client;
 
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
-import dev.anvilcraft.pullwires.init.AddonBlocks;
 import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.anvilcraft.pullwires.power.link.LinkBinding;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
 import dev.anvilcraft.pullwires.power.link.LinkState;
 import dev.anvilcraft.pullwires.power.link.PoleKey;
-import dev.anvilcraft.pullwires.util.PoleResolver;
-import dev.dubhe.anvilcraft.client.AnvilCraftClient;
 import dev.dubhe.anvilcraft.client.renderer.Line;
-import dev.dubhe.anvilcraft.constant.Constant;
-import dev.dubhe.anvilcraft.init.block.ModBlocks;
 import dev.dubhe.anvilcraft.item.DiskItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -24,20 +19,17 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
-import net.neoforged.neoforge.client.event.InputEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import org.jetbrains.annotations.Nullable;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 客户端的手动连接表现与入口。
@@ -51,6 +43,15 @@ public class ManualLinkClientEvents {
     private static final double SPARK_SPACING = 0.75;
     private static final int MAX_SPARKS = 64;
 
+    /** 跨维度杆顶端的传送门粒子节拍：每 4 tick 一次、每次 2–3 个（需求 §5.2）。 */
+    private static final int PORTAL_PARTICLE_INTERVAL = 4;
+
+    /** 粒子出现区域：以杆头顶端为中心的水平半径（内 / 外）与竖向范围。 */
+    private static final double PORTAL_RADIUS_MIN = 1.2;
+    private static final double PORTAL_RADIUS_MAX = 3.0;
+    private static final double PORTAL_Y_MIN = -0.5;
+    private static final double PORTAL_Y_MAX = 2.0;
+
 
     /**
      * 待连接期间把避雷针粒子从主端头部引到「方块放置预览轮廓」的头部。
@@ -63,20 +64,89 @@ public class ManualLinkClientEvents {
         LocalPlayer player = minecraft.player;
         ClientLevel level = minecraft.level;
         if (player == null || level == null) return;
-        PoleKey master = LinkBinding.read(player.getMainHandItem());
-        if (master == null) return;
-        // 手持输电杆（开始链接）或手持磁盘（只绑定主端）都算。
+
+        // 传送门粒子与「手上拿着什么」无关，必须在下面的提前返回之前跑：
+        // 跨维度杆连上之后，玩家手上多半什么都没拿。
+        spawnCrossDimensionPortals(level);
+
         ItemStack main = player.getMainHandItem();
+        LinkBinding.Bound bound = LinkBinding.read(main);
+        if (bound == null) return;
+        // 主板头部的坐标只在主端所在维度里有意义。跨维度时主端不在本地世界，
+        // 若照旧取坐标，会画出一条从本地某处指向下界坐标的虚假引导带。
+        if (!ClientLinkVisibility.inLocalLevel(level, bound.master())) return;
+        // 手持输电杆（开始链接）或手持磁盘（只绑定主端）都算。
         boolean holdingPole = PoleKind.isPoleItem(main);
-        boolean holdingDisk = player.getMainHandItem().getItem() instanceof DiskItem;
+        boolean holdingDisk = main.getItem() instanceof DiskItem;
         if (!holdingPole && !holdingDisk) return;
 
-        Vec3 from = ManualLinkAim.masterHead(master.pos());
+        Vec3 from = ManualLinkAim.masterHead(bound.master().pos());
         Vec3 to = ManualLinkAim.placementHead(minecraft);
         if (to == null) return;
-        if (from.distanceTo(to) > PoleKind.manualConnectRangeOfItem(player.getMainHandItem())) return;
+        // 范围取自**主端**的种类：服务端的放置判定用的是主端的范围（含「跨维度杆无距离限制」），
+        // 这里必须同源，否则会出现「看着在范围内，放下却被拒绝」。
+        if (!PoleKind.unlimitedConnectDistance(bound.kind())
+            && from.distanceTo(to) > PoleKind.manualConnectRange(bound.kind())) return;
 
         spawnSparks(level, from, to);
+    }
+
+    /**
+     * 跨维度杆的连接态表现：顶端持续散发向上漂移的传送门粒子。
+     *
+     * <p>一根杆可能同时挂在多条链路上（一主多从），因此这里按<b>坐标去重</b>——
+     * 否则挂 5 条链路就会变成 5 倍的粒子量。</p>
+     */
+    private static void spawnCrossDimensionPortals(ClientLevel level) {
+        if (!AnvilCraftPullWiresClient.CONFIG.effects.renderCrossDimensionPortalParticles) return;
+        if (level.getGameTime() % PORTAL_PARTICLE_INTERVAL != 0) return;
+        if (ManualLinkClientState.links().isEmpty()) return;
+
+        Set<BlockPos> emitted = new HashSet<>();
+        for (LinkDefinition definition : ManualLinkClientState.links()) {
+            LinkState state = ManualLinkClientState.stateOf(definition.id());
+            for (PoleKey end : List.of(definition.master(), definition.slave())) {
+                if (!ClientLinkVisibility.emitsPortalParticles(level, end, state)) continue;
+                if (emitted.add(end.pos())) spawnPortalBurst(level, end.pos());
+            }
+        }
+    }
+
+    /**
+     * 一束传送门粒子：在杆头周围的随机位置出现，然后沿直线飞向杆头。
+     *
+     * <h2>运动模型直接借原版 {@code PortalParticle}</h2>
+     * <p>它把 {@code addParticle} 的后三个参数当作<b>整个生命周期内的总位移</b>（不是速度），
+     * 每 tick 按下式定位：</p>
+     * <pre>
+     * f  = age / lifetime
+     * f1 = -f + 2f²          // f2 = 1 - f1：0 → 1 → 1.125 → 1 → 0
+     * x  = xStart + dx * f2
+     * y  = yStart + dy * f2 + (1 - f)   // 一点点抬起，位置略微上凸
+     * z  = zStart + dz * f2
+     * </pre>
+     * <p>所以只要把「杆头 − 起点」当作总位移传进去，粒子就会在生命周期结束时<b>精确落在杆头上</b>，
+     * 中途自然收敛，不需要每 tick 干预、也不需要自己算速度衰减。这与下界传送门的粒子是同一套代码，
+     * 因此观感一致——「在一定区域内出现，然后被吸向杆头」。</p>
+     */
+    private static void spawnPortalBurst(ClientLevel level, BlockPos top) {
+        double headX = top.getX() + 0.5;
+        double headY = top.getY() + 1.0;
+        double headZ = top.getZ() + 0.5;
+        int count = 2 + level.getRandom().nextInt(2);
+        for (int i = 0; i < count; i++) {
+            double angle = level.getRandom().nextDouble() * Math.PI * 2.0;
+            double radius = PORTAL_RADIUS_MIN
+                + level.getRandom().nextDouble() * (PORTAL_RADIUS_MAX - PORTAL_RADIUS_MIN);
+            double startX = headX + Math.cos(angle) * radius;
+            double startY = headY + PORTAL_Y_MIN + level.getRandom().nextDouble() * (PORTAL_Y_MAX - PORTAL_Y_MIN);
+            double startZ = headZ + Math.sin(angle) * radius;
+            level.addParticle(
+                ParticleTypes.PORTAL,
+                startX, startY, startZ,
+                headX - startX, headY - startY, headZ - startZ
+            );
+        }
     }
 
     private static void spawnSparks(ClientLevel level, Vec3 from, Vec3 to) {
@@ -118,7 +188,7 @@ public class ManualLinkClientEvents {
 
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.level == null) return;
-        String dimension = minecraft.level.dimension().location().toString();
+        ClientLevel level = minecraft.level;
         List<LinkDefinition> links = ManualLinkClientState.links();
         if (links.isEmpty()) return;
 
@@ -127,7 +197,8 @@ public class ManualLinkClientEvents {
         Vec3 camera = event.getCamera().getPosition();
         VertexConsumer consumer = buffers.getBuffer(RenderType.LINES);
         for (LinkDefinition definition : links) {
-            if (!definition.master().dimension().location().toString().equals(dimension)) continue;
+            // 跨维度链路与「端点涉及跨维度杆」的链路都不画线，判定见 ClientLinkVisibility。
+            if (!ClientLinkVisibility.drawsLine(level, definition)) continue;
             Vec3 from = Vec3.atCenterOf(definition.master().pos());
             Vec3 to = Vec3.atCenterOf(definition.slave().pos());
             new Line(from, to, (float) from.distanceTo(to))
