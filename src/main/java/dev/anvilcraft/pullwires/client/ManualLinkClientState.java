@@ -24,7 +24,6 @@ import java.util.UUID;
  * 用来画粒子束、画手动连接的电力线，以及显示瞄准中那根杆的优先级。</p>
  */
 public final class ManualLinkClientState {
-    private static @Nullable BlockPos pendingMaster;
     private static List<LinkDefinition> links = List.of();
     private static Map<PoleKey, PoleConfig> poleConfigs = Map.of();
     private static Map<PoleKey, SyncLinkStatsPacket.Entry> stats = Map.of();
@@ -33,14 +32,6 @@ public final class ManualLinkClientState {
     private ManualLinkClientState() {
     }
 
-    /** 当前待连接的主端顶部坐标；没有待连接状态时为 {@code null}。 */
-    public static @Nullable BlockPos pendingMaster() {
-        return pendingMaster;
-    }
-
-    public static void setPendingMaster(@Nullable BlockPos pos) {
-        pendingMaster = pos == null ? null : pos.immutable();
-    }
 
     public static List<LinkDefinition> links() {
         return links;
@@ -88,7 +79,6 @@ public final class ManualLinkClientState {
 
     /** 断开连接时清空，避免把上一条线的信息带到下一个存档。 */
     public static void clear() {
-        pendingMaster = null;
         links = List.of();
         poleConfigs = Map.of();
         stats = Map.of();

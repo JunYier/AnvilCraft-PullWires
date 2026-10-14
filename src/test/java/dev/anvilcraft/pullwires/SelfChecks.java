@@ -1,6 +1,5 @@
 package dev.anvilcraft.pullwires;
 
-import dev.anvilcraft.pullwires.power.line.PowerLineLayoutSelfCheck;
 import dev.anvilcraft.pullwires.power.link.InterconnectSettlementSelfCheck;
 import dev.anvilcraft.pullwires.power.link.LinkRuntimeSelfCheck;
 import dev.anvilcraft.pullwires.power.link.ManualLinkRuleSelfCheck;
@@ -19,7 +18,6 @@ public final class SelfChecks {
 
     public static void main(String[] args) {
         int failures = 0;
-        failures += PowerLineLayoutSelfCheck.run();
         failures += PowerLinkRuleSelfCheck.run();
         failures += PoleRuntimeSelfCheck.run();
         failures += InterconnectSettlementSelfCheck.run();

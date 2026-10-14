@@ -5,6 +5,7 @@ import dev.anvilcraft.lib.v2.config.BoundedDiscrete;
 import dev.anvilcraft.lib.v2.config.CollapsibleObject;
 import dev.anvilcraft.lib.v2.config.Comment;
 import dev.anvilcraft.lib.v2.config.Config;
+import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.anvilcraft.pullwires.power.link.PolePriority;
 
 /**
@@ -32,26 +33,30 @@ public class AddonConfig {
     public Linking linking = new Linking();
 
     public static class Transmission {
-        @Comment(
-            """
-            Controls the auto-connect range of Transmission Poles (in blocks, straight-line distance)
-            Defaults to 1.5x the pole's own range from AnvilCraft's config
-            Poles within this range join the same grid, but this range does NOT supply power:
-            generators, consumers and storages still only join by the pole's own range
-            """
-        )
-        @BoundedDiscrete(min = 1, max = 128)
-        public int autoConnectRange = 12;
+        // ---------------------------------------------------------------- 按杆种类划分的三档范围
+        // 与本体一致：范围按「杆子种类」取值，而不是全局一套。
+        // 本体那两种杆的「供电范围」仍由本体配置提供（我们无法把自己的界面项指过去），
+        // 因此这里只放本模组负责的自动连接范围与手动连接范围。
 
-        @Comment(
-            """
-            Controls the maximum straight-line distance of a manual connection (in blocks)
-            Defaults to 2x the pole's own range from AnvilCraft's config
-            Measured between the top segments of the two poles, not between bounding boxes
-            """
-        )
-        @BoundedDiscrete(min = 1, max = 256)
-        public int manualConnectRange = 16;
+        @SerializedName("Transmission Pole")
+        @Comment("Ranges of AnvilCraft's own Transmission Pole. Its supply range stays in AnvilCraft's config.")
+        @CollapsibleObject
+        public PoleRanges transmissionPole = PoleRanges.of(12, 16);
+
+        @SerializedName("Remote Transmission Pole")
+        @Comment("Ranges of AnvilCraft's own Remote Transmission Pole. Its supply range stays in AnvilCraft's config.")
+        @CollapsibleObject
+        public PoleRanges remoteTransmissionPole = PoleRanges.of(12, 16);
+
+        @SerializedName("Ultra Long Range Pole")
+        @Comment("Ranges of the Ultra Long Range Pole: tiny supply range, huge connection ranges")
+        @CollapsibleObject
+        public PoleRanges ultraLongRangePole = PoleRanges.of(256, 256);
+
+        @SerializedName("Cross Dimensional Pole")
+        @Comment("Ranges of the Cross Dimensional Pole: it supplies nothing and never auto-connects; disk linking only")
+        @CollapsibleObject
+        public PoleRanges crossDimensionalPole = PoleRanges.of(0, 0);
 
         @Comment(
             """
@@ -70,6 +75,34 @@ public class AddonConfig {
             """
         )
         public boolean switchRestartResetsRuntime = true;
+
+        /** 一种杆的三档范围里本模组负责的两档；0 表示不使用该档。 */
+        public static class PoleRanges {
+            @Comment("Auto-connect range in blocks (straight-line distance). 0 = this pole type never auto-connects")
+            @BoundedDiscrete(min = 0, max = 512)
+            public int autoConnectRange;
+
+            @Comment("Maximum manual connect distance in blocks. 0 = manual linking disabled for this pole type")
+            @BoundedDiscrete(min = 0, max = 512)
+            public int manualConnectRange;
+
+            static PoleRanges of(int autoConnectRange, int manualConnectRange) {
+                PoleRanges ranges = new PoleRanges();
+                ranges.autoConnectRange = autoConnectRange;
+                ranges.manualConnectRange = manualConnectRange;
+                return ranges;
+            }
+        }
+
+        /** 按杆种类取范围。这是「按种类划分」的唯一入口，调用方不该再直接读配置字段。 */
+        public PoleRanges rangesFor(PoleKind kind) {
+            return switch (kind) {
+                case TRANSMISSION -> this.transmissionPole;
+                case REMOTE -> this.remoteTransmissionPole;
+                case ULTRA_LONG_RANGE -> this.ultraLongRangePole;
+                case CROSS_DIMENSIONAL -> this.crossDimensionalPole;
+            };
+        }
     }
 
     public static class Settlement {

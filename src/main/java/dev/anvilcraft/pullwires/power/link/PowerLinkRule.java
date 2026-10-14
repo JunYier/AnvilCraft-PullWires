@@ -1,6 +1,7 @@
 package dev.anvilcraft.pullwires.power.link;
 
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * 输电杆并网判定的纯逻辑部分，不依赖任何游戏类型，便于单独验证。
@@ -81,6 +82,8 @@ public final class PowerLinkRule {
         for (Box box : gridSupply) {
             if (candidateSupply.intersects(box)) return true;
         }
+        // candidate 为 null 表示「本种类不参与杆间连接判定」（跨维度杆），只走供电框那条路。
+        if (candidate == null) return false;
         for (LinkNode other : gridTransmitters) {
             if (linked(candidate, other)) return true;
         }

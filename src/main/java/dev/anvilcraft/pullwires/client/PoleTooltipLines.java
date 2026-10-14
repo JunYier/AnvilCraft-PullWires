@@ -19,28 +19,29 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
- * 输电杆的补充 tooltip 行。
+ * 输电杆的补充 tooltip。
  *
- * <h2>版面（三个同级标题）</h2>
+ * <h2>版面</h2>
  * <pre>
  * 电网统计：
- *   总耗电量：80+40 kW
- *   总发电量：160+40 kW
+ *   总耗电量：80 kW        ← 本体原样，一个字都不改
+ *   总发电量：160 kW       ← 本体原样
+ *   总交换电量：40 kW      ← 本模组插入，与「总发电量」同级
  * 拉电线（主端）：
- *   发送（接收）电量：16 kW
- *   总转移电量：40 kW
- *   优先级 7
- * 未锁定
+ *   外送电量：16 kW
+ *   内收电量：8 kW         ← 为 0 时整行隐藏
+ *   优先级：7
+ * 锁定                      ← 仅锁定时出现
  * </pre>
  *
- * <p>「电网统计」是本体原有的块，我们只在其两行后追加本模组的转移量；
- * 「拉电线」与锁定状态是本模组新增的，且锁定状态是<b>标题级</b>、无链路时也始终可见。</p>
+ * <h2>为什么全是「功率」而不是「累计量」</h2>
+ * <p>早期版本显示过「总转移电量」，那是个只增不减的累计值，玩家看到的数字会一直上涨，
+ * 无法回答「这根杆现在往外送多少」。现在所有数值都是<b>本拍功率</b>（kW），
+ * 与本体自己的电网统计口径一致。</p>
  */
 public final class PoleTooltipLines {
-    private static final String GRID_CONSUMED = "tooltip.anvilcraft.grid_information.total_consumed";
     private static final String GRID_GENERATED = "tooltip.anvilcraft.grid_information.total_generated";
 
     private PoleTooltipLines() {
@@ -59,62 +60,34 @@ public final class PoleTooltipLines {
     }
 
     /**
-     * 把本体「电网统计」里的总耗电 / 总发电两行改写成带转移量的形式。
+     * 在本体「电网统计」块里插入「总交换电量」。
      *
-     * <p>不改数字本身，只在其后追加 +xx。<b>追加量为 0 时原样返回</b>，
-     * 这样纯本体电网的观感与未装本模组时完全一致。</p>
+     * <p><b>不修改本体任何一行</b>——早期版本往「总耗电量 / 总发电量」后面拼 {@code +40}，
+     * 那是在别人的字符串上做文章；现在改成在「总发电量」之后另起一行，与它同级。</p>
+     *
+     * <p>交换电量为 0（该电网没有对外互联）时整行不插入，纯本体电网的观感不变。</p>
      */
-    public static List<Component> rewriteGridLines(List<Component> base, BlockEntity entity) {
+    public static List<Component> augmentGridLines(List<Component> base, BlockEntity entity) {
         PoleKey key = poleKeyOf(entity);
         if (key == null) return base;
         SyncLinkStatsPacket.Entry stats = ManualLinkClientState.statsOf(key);
-        if (stats == null || (stats.gridOut() <= 0 && stats.gridIn() <= 0)) return base;
+        if (stats == null) return base;
+        int exchange = stats.gridOut() + stats.gridIn();
+        if (exchange <= 0) return base;
 
-        List<Component> result = new ArrayList<>(base.size());
+        List<Component> result = new ArrayList<>(base.size() + 1);
         for (Component line : base) {
-            if (!(line.getContents() instanceof TranslatableContents contents)) {
-                result.add(line);
-                continue;
+            result.add(line);
+            // 紧跟「总发电量」之后插入，与它同一视觉层级。
+            if (line.getContents() instanceof TranslatableContents contents
+                && GRID_GENERATED.equals(contents.getKey())) {
+                result.add(indent(Component.translatable(
+                    "tooltip.anvilcraft_pullwires.grid_information.exchange",
+                    electricity(exchange)
+                ).withStyle(ChatFormatting.GRAY)));
             }
-            boolean consumed = GRID_CONSUMED.equals(contents.getKey());
-            boolean generated = GRID_GENERATED.equals(contents.getKey());
-            int extra = consumed ? stats.gridOut() : generated ? stats.gridIn() : 0;
-            Object[] args = contents.getArgs();
-            if (extra <= 0 || args.length == 0) {
-                result.add(line);
-                continue;
-            }
-            String rendered = args[0] instanceof Component component
-                ? component.getString()
-                : String.valueOf(args[0]);
-            // 本体渲染出来是 "80 kW" 这种「数字 单位」形式，拆开才能拼成 "80+40 kW"。
-            int space = rendered.lastIndexOf(' ');
-            String number = space < 0 ? rendered : rendered.substring(0, space);
-            String unit = space < 0 ? "" : rendered.substring(space + 1);
-            String extraText = formatExtra(extra, unit);
-            if (extraText == null) {
-                result.add(line);
-                continue;
-            }
-            result.add(Component.translatable(
-                consumed
-                    ? "tooltip.anvilcraft_pullwires.grid_information.total_consumed"
-                    : "tooltip.anvilcraft_pullwires.grid_information.total_generated",
-                Component.literal(number).withStyle(ChatFormatting.GOLD),
-                Component.literal(extraText).withStyle(ChatFormatting.GREEN)
-            ).withStyle(ChatFormatting.GRAY));
         }
         return result;
-    }
-
-    /** 追加量的文字；无法安全换算（如无限电力）时返回 null 表示放弃改写。 */
-    private static String formatExtra(int extra, String unit) {
-        if (UnitUtil.INFINITE_POWER.equals(unit)) return null;
-        return switch (unit) {
-            case "MW" -> String.format(Locale.ROOT, "%.2f MW", extra / 1000.0);
-            case "FE", "kFE", "MFE" -> null;
-            default -> extra + (unit.isEmpty() ? "" : " " + unit);
-        };
     }
 
     /** 本模组追加的行：拉电线块与锁定状态。 */
@@ -136,11 +109,19 @@ public final class PoleTooltipLines {
             if (asMaster || asSlave) {
                 lines.add(Component.translatable(titleKey(asMaster, asSlave))
                     .withStyle(ChatFormatting.BLUE));
-                lines.add(indent(amountLine(stats, asMaster, asSlave)));
-                lines.add(indent(Component.translatable(
-                    "tooltip.anvilcraft_pullwires.link.total",
-                    electricity(stats.sendTotal() + stats.recvTotal())
-                ).withStyle(ChatFormatting.GRAY)));
+                // 外送 / 内收各自独立成行，为 0 时隐藏——避免一堆「0 kW」把版面撑满。
+                if (stats.sendNow() > 0) {
+                    lines.add(indent(Component.translatable(
+                        "tooltip.anvilcraft_pullwires.link.send",
+                        electricity(stats.sendNow())
+                    ).withStyle(ChatFormatting.GRAY)));
+                }
+                if (stats.recvNow() > 0) {
+                    lines.add(indent(Component.translatable(
+                        "tooltip.anvilcraft_pullwires.link.receive",
+                        electricity(stats.recvNow())
+                    ).withStyle(ChatFormatting.GRAY)));
+                }
                 lines.add(indent(Component.translatable(
                     "tooltip.anvilcraft_pullwires.link.priority",
                     Component.literal(String.valueOf(config.priority())).withStyle(ChatFormatting.YELLOW)
@@ -148,11 +129,11 @@ public final class PoleTooltipLines {
             }
         }
 
-        // 锁定状态是标题级，且无论有没有链路都始终可见。
-        lines.add(Component.translatable(config.locked()
-                ? "tooltip.anvilcraft_pullwires.locked"
-                : "tooltip.anvilcraft_pullwires.unlocked")
-            .withStyle(config.locked() ? ChatFormatting.RED : ChatFormatting.GRAY));
+        // 未锁定不显示；锁定后才出现（标题级）。
+        if (config.locked()) {
+            lines.add(Component.translatable("tooltip.anvilcraft_pullwires.locked")
+                .withStyle(ChatFormatting.RED));
+        }
         return lines;
     }
 
@@ -161,22 +142,6 @@ public final class PoleTooltipLines {
         return asMaster
             ? "tooltip.anvilcraft_pullwires.link.master"
             : "tooltip.anvilcraft_pullwires.link.slave";
-    }
-
-    private static Component amountLine(SyncLinkStatsPacket.Entry stats, boolean asMaster, boolean asSlave) {
-        if (asMaster && asSlave) {
-            return Component.translatable(
-                "tooltip.anvilcraft_pullwires.link.send_receive",
-                electricity(stats.sendNow()),
-                electricity(stats.recvNow())
-            ).withStyle(ChatFormatting.GRAY);
-        }
-        return Component.translatable(
-            asMaster
-                ? "tooltip.anvilcraft_pullwires.link.send"
-                : "tooltip.anvilcraft_pullwires.link.receive",
-            electricity(asMaster ? stats.sendNow() : stats.recvNow())
-        ).withStyle(ChatFormatting.GRAY);
     }
 
     /** 与本体一致：按住 shift 显示原始数值（kW），否则允许换算到 MW。 */

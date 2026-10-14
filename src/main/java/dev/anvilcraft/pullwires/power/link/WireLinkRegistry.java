@@ -49,10 +49,6 @@ public class WireLinkRegistry extends SavedData {
     private static final String DATA_NAME = "anvilcraft_pullwires_links";
     private static final String POLES_KEY = "poles";
     private static final String LINK_SEQUENCE_KEY = "link_sequence";
-    private static final String LINK_TOTALS_KEY = "link_totals";
-    private static final String LINK_TOTAL_IDS_KEY = "link_total_ids";
-    private static final Codec<List<Long>> LINK_TOTAL_CODEC = Codec.LONG.listOf();
-    private static final Codec<List<UUID>> LINK_TOTAL_ID_CODEC = UUIDUtil.CODEC.listOf();
     private static final String LINKS_KEY = "links";
 
     private static final SavedData.Factory<WireLinkRegistry> FACTORY = new SavedData.Factory<>(
@@ -78,9 +74,6 @@ public class WireLinkRegistry extends SavedData {
 
     /** 临时：每条链路的状态。 */
     private final Map<UUID, LinkState> linkStates = new HashMap<>();
-
-    /** 持久：每条链路的累计转移电量，用于 tooltip 的「总转移电量」。 */
-    private final Map<UUID, Long> linkTotals = new LinkedHashMap<>();
 
     /** 临时：每根杆的统计快照，每拍重建，随同步包推给客户端。 */
     private final Map<PoleKey, SyncLinkStatsPacket.Entry> poleStats = new HashMap<>();
@@ -251,19 +244,8 @@ public class WireLinkRegistry extends SavedData {
             this.links.remove(id);
             this.linkStates.remove(id);
             this.linkRuntimes.remove(id);
-            this.linkTotals.remove(id);
         }
         if (dirty || !affected.isEmpty()) this.setDirty();
-    }
-
-    /** 累加一条链路的转移量。累计值持久化，因此 tooltip 的「总转移电量」能跨会话保留。 */
-    public void addLinkTotal(UUID id, long amount) {
-        this.linkTotals.merge(id, amount, Long::sum);
-        this.setDirty();
-    }
-
-    public long linkTotal(UUID id) {
-        return this.linkTotals.getOrDefault(id, 0L);
     }
 
     /** 每拍由调度器整体替换一次，客户端 tooltip 读它。 */
@@ -282,12 +264,6 @@ public class WireLinkRegistry extends SavedData {
         return List.copyOf(this.poleStats.values());
     }
 
-    private static <T> List<T> readTaggedList(Codec<List<T>> codec, CompoundTag tag, String key) {
-        Tag element = tag.get(key);
-        if (element == null) return List.of();
-        return decodeLenient(codec, element).orElse(List.of());
-    }
-
     // ---------------------------------------------------------------- 持久化
 
     @Override
@@ -299,8 +275,6 @@ public class WireLinkRegistry extends SavedData {
         tag.put(POLES_KEY, encode(PoleEntry.CODEC.listOf(), poles));
         tag.put(LINKS_KEY, encode(LinkDefinition.CODEC.listOf(), List.copyOf(this.links.values())));
         tag.putLong(LINK_SEQUENCE_KEY, this.linkSequence);
-        tag.put(LINK_TOTALS_KEY, encode(LINK_TOTAL_CODEC, List.copyOf(this.linkTotals.values())));
-        tag.put(LINK_TOTAL_IDS_KEY, encode(LINK_TOTAL_ID_CODEC, List.copyOf(this.linkTotals.keySet())));
         return tag;
     }
 
@@ -309,15 +283,8 @@ public class WireLinkRegistry extends SavedData {
         this.links.clear();
         this.linkStates.clear();
         this.linkRuntimes.clear();
-        this.linkTotals.clear();
         this.poleStats.clear();
-        this.linkSequence = tag.getLong(LINK_SEQUENCE_KEY);
-        List<Long> totals = readTaggedList(LINK_TOTAL_CODEC, tag, LINK_TOTALS_KEY);
-        List<UUID> totalIds = readTaggedList(LINK_TOTAL_ID_CODEC, tag, LINK_TOTAL_IDS_KEY);
-        for (int i = 0; i < Math.min(totalIds.size(), totals.size()); i++) {
-            this.linkTotals.put(totalIds.get(i), totals.get(i));
-        }
-        this.poleRuntimes.clear();
+        this.linkSequence = tag.getLong(LINK_SEQUENCE_KEY);        this.poleRuntimes.clear();
 
         for (Tag element : tag.getList(POLES_KEY, Tag.TAG_COMPOUND)) {
             decodeLenient(PoleEntry.CODEC, element).ifPresent(entry -> this.poleConfigs.put(entry.key(), entry.config()));

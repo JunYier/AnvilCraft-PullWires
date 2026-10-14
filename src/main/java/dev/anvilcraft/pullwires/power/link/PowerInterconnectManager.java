@@ -139,7 +139,6 @@ public final class PowerInterconnectManager {
                     ? transfer.amount()
                     : -transfer.amount();
                 registry.linkRuntime(settled.get(index).id()).push(signed);
-                registry.addLinkTotal(settled.get(index).id(), transfer.amount());
             }
         }
 
@@ -317,8 +316,6 @@ public final class PowerInterconnectManager {
         for (PoleKey pole : registry.linkedPoles()) {
             int sendNow = 0;
             int recvNow = 0;
-            long sendTotal = 0;
-            long recvTotal = 0;
             for (LinkDefinition definition : registry.links()) {
                 boolean asMaster = definition.master().equals(pole);
                 boolean asSlave = definition.slave().equals(pole);
@@ -326,16 +323,14 @@ public final class PowerInterconnectManager {
                 LinkRuntime runtime = registry.linkRuntime(definition.id());
                 if (asMaster) {
                     sendNow += runtime.lastAmount();
-                    sendTotal += registry.linkTotal(definition.id());
                 } else {
                     recvNow += runtime.lastAmount();
-                    recvTotal += registry.linkTotal(definition.id());
                 }
             }
             PowerGrid grid = findGrid(server, pole);
             int delta = grid == null ? 0 : deltas.getOrDefault(grid, 0);
             stats.add(new SyncLinkStatsPacket.Entry(
-                pole, sendNow, recvNow, sendTotal, recvTotal,
+                pole, sendNow, recvNow,
                 delta < 0 ? -delta : 0, delta > 0 ? delta : 0
             ));
         }

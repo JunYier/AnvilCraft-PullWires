@@ -17,24 +17,14 @@ public final class AddonNetwork {
         // 版本号与本体保持一致的做法：协议不兼容时客户端会直接被拒绝连接。
         PayloadRegistrar registrar = event.registrar("1");
         registrar.playToServer(
-            StartManualLinkPacket.TYPE,
-            StartManualLinkPacket.STREAM_CODEC,
-            StartManualLinkPacket::handle
-        );
-        registrar.playToServer(
-            CancelManualLinkPacket.TYPE,
-            CancelManualLinkPacket.STREAM_CODEC,
-            CancelManualLinkPacket::handle
-        );
-        registrar.playToServer(
             AdjustPriorityPacket.TYPE,
             AdjustPriorityPacket.STREAM_CODEC,
             AdjustPriorityPacket::handle
         );
         registrar.playToClient(
-            SyncPendingLinkPacket.TYPE,
-            SyncPendingLinkPacket.STREAM_CODEC,
-            SyncPendingLinkPacket::handle
+            SyncLinkStatsPacket.TYPE,
+            SyncLinkStatsPacket.STREAM_CODEC,
+            SyncLinkStatsPacket::handle
         );
         registrar.playToClient(
             SyncRegistryPacket.TYPE,

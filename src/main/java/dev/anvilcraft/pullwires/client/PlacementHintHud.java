@@ -1,6 +1,7 @@
 package dev.anvilcraft.pullwires.client;
 
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
+import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
 import dev.dubhe.anvilcraft.init.block.ModBlocks;
 import net.minecraft.client.DeltaTracker;
@@ -72,7 +73,7 @@ public final class PlacementHintHud {
      * 与本体电网的覆盖判定（兜底，覆盖那些还没建立任何链路的杆）。</p>
      */
     private static boolean withinAutoConnectRange(Minecraft minecraft, BlockPos placement) {
-        int range = AnvilCraftPullWires.CONFIG.transmission.autoConnectRange;
+        int range = PoleKind.autoConnectRangeOfItem(minecraft.player.getMainHandItem());
         Vec3 center = Vec3.atCenterOf(placement);
         for (LinkDefinition definition : ManualLinkClientState.links()) {
             if (!definition.master().dimension().equals(minecraft.level.dimension())) continue;

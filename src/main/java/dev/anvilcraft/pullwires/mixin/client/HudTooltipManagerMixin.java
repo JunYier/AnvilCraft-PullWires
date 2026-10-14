@@ -45,7 +45,7 @@ public abstract class HudTooltipManagerMixin {
         List<Component> base = provider.tooltip(entity);
         if (base == null) base = List.of();
         // 先改写本体「电网统计」的两行（追加转出 / 转入量），再追加本模组的「拉电线」块与锁定状态。
-        List<Component> merged = new ArrayList<>(PoleTooltipLines.rewriteGridLines(base, entity));
+        List<Component> merged = new ArrayList<>(PoleTooltipLines.augmentGridLines(base, entity));
         merged.addAll(PoleTooltipLines.of(entity));
         return merged;
     }

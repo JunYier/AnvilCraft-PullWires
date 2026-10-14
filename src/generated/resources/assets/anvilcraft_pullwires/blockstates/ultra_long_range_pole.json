@@ -1,0 +1,52 @@
+{
+  "variants": {
+    "half=bottom,overload=false,switch=off": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_base"
+    },
+    "half=bottom,overload=false,switch=on": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_base"
+    },
+    "half=bottom,overload=true,switch=off": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_base"
+    },
+    "half=bottom,overload=true,switch=on": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_base"
+    },
+    "half=lower,overload=false,switch=off": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
+    },
+    "half=lower,overload=false,switch=on": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
+    },
+    "half=lower,overload=true,switch=off": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
+    },
+    "half=lower,overload=true,switch=on": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
+    },
+    "half=top,overload=false,switch=off": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_top_off"
+    },
+    "half=top,overload=false,switch=on": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_top"
+    },
+    "half=top,overload=true,switch=off": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_top_off"
+    },
+    "half=top,overload=true,switch=on": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_top_overload"
+    },
+    "half=upper,overload=false,switch=off": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
+    },
+    "half=upper,overload=false,switch=on": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
+    },
+    "half=upper,overload=true,switch=off": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
+    },
+    "half=upper,overload=true,switch=on": {
+      "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
+    }
+  }
+}

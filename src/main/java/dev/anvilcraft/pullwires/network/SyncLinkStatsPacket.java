@@ -43,8 +43,6 @@ public record SyncLinkStatsPacket(CompoundTag data) implements CustomPacketPaylo
      *
      * @param sendNow   本拍作为主端送出的电量
      * @param recvNow   本拍作为从端收到的电量
-     * @param sendTotal 累计送出（持久化，自链路建立以来）
-     * @param recvTotal 累计收到
      * @param gridOut   该杆所在电网本拍的净流出
      * @param gridIn    该杆所在电网本拍的净流入
      */
@@ -52,8 +50,6 @@ public record SyncLinkStatsPacket(CompoundTag data) implements CustomPacketPaylo
         PoleKey pole,
         int sendNow,
         int recvNow,
-        long sendTotal,
-        long recvTotal,
         int gridOut,
         int gridIn
     ) {
@@ -61,8 +57,6 @@ public record SyncLinkStatsPacket(CompoundTag data) implements CustomPacketPaylo
             PoleKey.CODEC.fieldOf("pole").forGetter(Entry::pole),
             Codec.INT.fieldOf("send_now").forGetter(Entry::sendNow),
             Codec.INT.fieldOf("recv_now").forGetter(Entry::recvNow),
-            Codec.LONG.fieldOf("send_total").forGetter(Entry::sendTotal),
-            Codec.LONG.fieldOf("recv_total").forGetter(Entry::recvTotal),
             Codec.INT.fieldOf("grid_out").forGetter(Entry::gridOut),
             Codec.INT.fieldOf("grid_in").forGetter(Entry::gridIn)
         ).apply(instance, Entry::new));

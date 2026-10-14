@@ -1,15 +1,18 @@
 package dev.anvilcraft.pullwires.client;
 
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
-import dev.anvilcraft.pullwires.network.CancelManualLinkPacket;
-import dev.anvilcraft.pullwires.network.StartManualLinkPacket;
+import dev.anvilcraft.pullwires.init.AddonBlocks;
+import dev.anvilcraft.pullwires.power.link.PoleKind;
+import dev.anvilcraft.pullwires.power.link.LinkBinding;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
 import dev.anvilcraft.pullwires.power.link.LinkState;
+import dev.anvilcraft.pullwires.power.link.PoleKey;
 import dev.anvilcraft.pullwires.util.PoleResolver;
 import dev.dubhe.anvilcraft.client.AnvilCraftClient;
 import dev.dubhe.anvilcraft.client.renderer.Line;
 import dev.dubhe.anvilcraft.constant.Constant;
 import dev.dubhe.anvilcraft.init.block.ModBlocks;
+import dev.dubhe.anvilcraft.item.DiskItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -20,6 +23,7 @@ import net.minecraft.client.renderer.RenderType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
@@ -47,38 +51,6 @@ public class ManualLinkClientEvents {
     private static final double SPARK_SPACING = 0.75;
     private static final int MAX_SPARKS = 64;
 
-    @SubscribeEvent
-    public static void onInteraction(InputEvent.InteractionKeyMappingTriggered event) {
-        if (!event.isUseItem()) return;
-        if (!AddonKeyMappings.MANUAL_LINK.get().isDown()) return;
-
-        Minecraft minecraft = Minecraft.getInstance();
-        LocalPlayer player = minecraft.player;
-        if (player == null || minecraft.level == null) return;
-        if (!player.getMainHandItem().is(ModBlocks.TRANSMISSION_POLE.get().asItem())) return;
-
-        HitResult hit = minecraft.hitResult;
-        // 注意：什么都没打中时原版返回的是 BlockHitResult（Type.MISS），不是 null。
-        // 只按 instanceof 判断会把「右键空气」误当成「命中了一个非杆方块」，取消包就永远发不出去。
-        if (hit instanceof BlockHitResult blockHit
-            && blockHit.getType() == HitResult.Type.BLOCK
-            && PoleResolver.isPoleTop(minecraft.level, blockHit.getBlockPos())) {
-            PacketDistributor.sendToServer(new StartManualLinkPacket(blockHit.getBlockPos()));
-            event.setSwingHand(false);
-            event.setCanceled(true);
-            return;
-        }
-
-        if (hit == null || hit.getType() == HitResult.Type.MISS) {
-            // 右键空气：显式取消待连接状态。
-            PacketDistributor.sendToServer(new CancelManualLinkPacket());
-            event.setSwingHand(false);
-            event.setCanceled(true);
-            return;
-        }
-
-        // 瞄准的是别的方块：交回原版处理，不要吞掉玩家的正常交互。
-    }
 
     /**
      * 待连接期间把避雷针粒子从主端头部引到「方块放置预览轮廓」的头部。
@@ -90,14 +62,19 @@ public class ManualLinkClientEvents {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         ClientLevel level = minecraft.level;
-        BlockPos master = ManualLinkClientState.pendingMaster();
-        if (master == null || player == null || level == null) return;
-        if (!player.getMainHandItem().is(ModBlocks.TRANSMISSION_POLE.get().asItem())) return;
+        if (player == null || level == null) return;
+        PoleKey master = LinkBinding.read(player.getMainHandItem());
+        if (master == null) return;
+        // 手持输电杆（开始链接）或手持磁盘（只绑定主端）都算。
+        ItemStack main = player.getMainHandItem();
+        boolean holdingPole = PoleKind.isPoleItem(main);
+        boolean holdingDisk = player.getMainHandItem().getItem() instanceof DiskItem;
+        if (!holdingPole && !holdingDisk) return;
 
-        Vec3 from = ManualLinkAim.masterHead(master);
+        Vec3 from = ManualLinkAim.masterHead(master.pos());
         Vec3 to = ManualLinkAim.placementHead(minecraft);
         if (to == null) return;
-        if (from.distanceTo(to) > AnvilCraftPullWires.CONFIG.transmission.manualConnectRange) return;
+        if (from.distanceTo(to) > PoleKind.manualConnectRangeOfItem(player.getMainHandItem())) return;
 
         spawnSparks(level, from, to);
     }

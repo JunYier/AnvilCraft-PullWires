@@ -48,6 +48,9 @@ public class AddonLangHandler {
         provider.add("message.anvilcraft_pullwires.manual.started", "Master set to %s; place a Transmission Pole within range to link");
         provider.add("message.anvilcraft_pullwires.manual.too_far", "Out of manual connect range (%s / %s blocks)");
         provider.add("message.anvilcraft_pullwires.manual.connected", "Link created");
+        provider.add("message.anvilcraft_pullwires.binding.bound", "Bound to master");
+        provider.add("message.anvilcraft_pullwires.binding.cleared", "Binding cleared");
+        provider.add("message.anvilcraft_pullwires.disk.bound", "Disk bound to master %s");
         provider.add("message.anvilcraft_pullwires.manual.cancelled", "Pending link cancelled");
         provider.add(
             "message.anvilcraft_pullwires.manual.duplicate_direction",
@@ -58,19 +61,14 @@ public class AddonLangHandler {
         provider.add("message.anvilcraft_pullwires.lock.locked", "Locked: this pole ignores redstone switching");
         provider.add("message.anvilcraft_pullwires.lock.unlocked", "Unlocked: this pole follows redstone again");
 
-        provider.add("tooltip.anvilcraft_pullwires.grid_information.total_consumed", "Total consumed: %s+%s");
-        provider.add("tooltip.anvilcraft_pullwires.grid_information.total_generated", "Total generated: %s+%s");
+        provider.add("tooltip.anvilcraft_pullwires.grid_information.exchange", "Total exchanged: %s");
         provider.add("tooltip.anvilcraft_pullwires.link.master", "Pull Wires (master):");
         provider.add("tooltip.anvilcraft_pullwires.link.slave", "Pull Wires (slave):");
         provider.add("tooltip.anvilcraft_pullwires.link.both", "Pull Wires (master / slave):");
         provider.add("tooltip.anvilcraft_pullwires.link.send", "Sending: %s");
         provider.add("tooltip.anvilcraft_pullwires.link.receive", "Receiving: %s");
-        provider.add("tooltip.anvilcraft_pullwires.link.send_receive", "Sending / receiving: %s / %s");
-        provider.add("tooltip.anvilcraft_pullwires.link.total", "Total transferred: %s");
-        provider.add("tooltip.anvilcraft_pullwires.link.priority", "Priority %s");
-        provider.add("tooltip.anvilcraft_pullwires.locked", "Locked");
-        provider.add("tooltip.anvilcraft_pullwires.unlocked", "Unlocked");
-        provider.add("bossbar.anvilcraft_pullwires.manual_link", "Connect distance %s / %s (break at %s)");
+        provider.add("tooltip.anvilcraft_pullwires.link.priority", "Priority: %s");
+        provider.add("tooltip.anvilcraft_pullwires.locked", "Locked");        provider.add("bossbar.anvilcraft_pullwires.manual_link", "Connect distance %s / %s (break at %s)");
 
         provider.add(
             "command.anvilcraft_pullwires.clear.confirm_hint",

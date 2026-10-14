@@ -39,11 +39,15 @@ public class PowerLinkConnectivityChecker extends ConnectivityChecker {
         // 发电机／用电器／储电元件：交回本体判定，其 getShape() 就是供电范围。
         if (component.getComponentType() != PowerComponentType.TRANSMITTER) return TriState.DEFAULT;
 
+        // 跨维度输电杆：需求 §5.2 规定它不参与「杆间自动连接」。
+        // 注意它仍<b>可以</b>靠供电框接入电网——否则结算找不到电网，链路永远是 INACTIVE。
+
         List<PowerLinkRule.Box> gridSupply = new ArrayList<>();
         List<PowerLinkRule.LinkNode> gridTransmitters = new ArrayList<>();
         for (IPowerComponent other : powerGrid.getComponents()) {
             gridSupply.add(toBox(other.getShape()));
-            if (other.getComponentType() == PowerComponentType.TRANSMITTER) {
+            if (other.getComponentType() == PowerComponentType.TRANSMITTER
+                && PoleKind.ofComponent(other) != PoleKind.CROSS_DIMENSIONAL) {
                 gridTransmitters.add(linkNode(other));
             }
         }
@@ -51,7 +55,7 @@ public class PowerLinkConnectivityChecker extends ConnectivityChecker {
         boolean canJoin = PowerLinkRule.canTransmitterJoin(
             toBox(component.getShape()),
             gridSupply,
-            linkNode(component),
+            PoleKind.ofComponent(component) == PoleKind.CROSS_DIMENSIONAL ? null : linkNode(component),
             gridTransmitters
         );
         // 返回 FALSE 而不是 DEFAULT：明确接管输电杆的判定，不依赖本体 checker 的内部实现。
@@ -60,9 +64,10 @@ public class PowerLinkConnectivityChecker extends ConnectivityChecker {
 
     /** 输电杆的连接节点，范围见 {@link PowerLinkRule#linkRange(int, int)}。 */
     public static PowerLinkRule.LinkNode linkNode(IPowerComponent component) {
-        int range = PowerLinkRule.linkRange(
+        // 按「杆的种类」取自动连接范围，而不是全局一套。
+int range = PowerLinkRule.linkRange(
             component.getRange(),
-            AnvilCraftPullWires.CONFIG.transmission.autoConnectRange
+            PoleKind.autoConnectRange(PoleKind.ofComponent(component))
         );
         Vec3 center = component.getPos().getCenter();
         return new PowerLinkRule.LinkNode(center.x, center.y, center.z, range);
