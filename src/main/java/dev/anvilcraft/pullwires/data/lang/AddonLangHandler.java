@@ -90,7 +90,6 @@ public class AddonLangHandler {
         provider.add("hud.anvilcraft_pullwires.connection_list.header", "Links (%s)");
         provider.add("hud.anvilcraft_pullwires.connection_list.more", "%s more...");
         provider.add("key.categories.anvilcraft_pullwires", "Pull Wires");
-        provider.add("key.anvilcraft_pullwires.manual_link", "Manual link");
         provider.add("key.anvilcraft_pullwires.priority_adjust", "Adjust priority");
 
         provider.add("dimension.minecraft.overworld", "Overworld");

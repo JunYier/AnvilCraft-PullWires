@@ -1,13 +1,18 @@
 package dev.anvilcraft.pullwires.block.entity;
 
+import dev.anvilcraft.pullwires.AnvilCraftPullWires;
 import dev.anvilcraft.pullwires.init.AddonBlocks;
+import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.dubhe.anvilcraft.api.power.IPowerComponent;
 import dev.dubhe.anvilcraft.api.power.PowerComponentType;
 import dev.dubhe.anvilcraft.api.power.PowerGrid;
+import dev.dubhe.anvilcraft.api.world.load.LevelLoadManager;
+import dev.dubhe.anvilcraft.api.world.load.LoadChuckData;
 import dev.dubhe.anvilcraft.block.RemoteTransmissionPoleBlock;
 import dev.dubhe.anvilcraft.block.entity.AbstractTransmissionPoleBlockEntity;
 import dev.dubhe.anvilcraft.block.state.Vertical4PartHalf;
 import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
@@ -22,6 +27,11 @@ import java.util.Objects;
  * {@link IPowerComponent} 有 5 个抽象方法要自己实现；本体靠 Lombok 的
  * {@code @Getter @Setter} 生成 grid 访问器，本模组不引 Lombok，因此手写。
  * {@code flushState} / {@code getShape} / {@code gridTick} 是接口 default，可直接调用。</p>
+ *
+ * <h2>自己那一格常加载</h2>
+ * <p>跨维度链路的对端在别的维度，没人过去时那一侧会卸载，链路就只能停在 {@code INACTIVE}。
+ * 这里直接调用本体「监督者」用的那套 {@link LevelLoadManager}，把<b>自己所在的这一个区块</b>
+ * 强加载（{@code level = 0} → 边长为 1 的加载区），不申请随机刻。</p>
  */
 public class CrossDimensionalPoleBlockEntity extends AbstractTransmissionPoleBlockEntity {
     private @Nullable PowerGrid grid;
@@ -70,9 +80,10 @@ public class CrossDimensionalPoleBlockEntity extends AbstractTransmissionPoleBlo
         return PowerComponentType.TRANSMITTER;
     }
 
+    /** 不供电：只做链路端点，供电范围恒为 0（配置里也固定为 0）。 */
     @Override
     public int getRange() {
-        return 0;
+        return PoleKind.supplyRange(PoleKind.CROSS_DIMENSIONAL);
     }
 
     /** 由方块的 ticker 调用：跟随 SWITCH 入网 / 退网，然后同步方块状态。 */
@@ -80,6 +91,7 @@ public class CrossDimensionalPoleBlockEntity extends AbstractTransmissionPoleBlo
         // 方块实体的 tick 在客户端也会跑。不挡住的话会在 ClientLevel 上建出一座电网，
         // 本体服务端的 PowerGridManager 遍历到它时会 ClassCastException 崩溃。
         if (level.isClientSide) return;
+        this.keepOwnChunkLoaded(level);
         BlockState state = this.getBlockState();
         if (state.getValue(RemoteTransmissionPoleBlock.SWITCH) == IPowerComponent.Switch.OFF) {
             if (this.getGrid() != null) this.getGrid().remove(this);
@@ -87,5 +99,36 @@ public class CrossDimensionalPoleBlockEntity extends AbstractTransmissionPoleBlo
             PowerGrid.addComponent(this);
         }
         this.flushState(level, pos);
+    }
+
+    /**
+     * 把自己的单区块登记为强加载；已经登记过就什么都不做。
+     *
+     * <p>幂等是必要的：{@link LevelLoadManager} 的登记表是<b>内存态</b>，服务器重启后是空的，
+     * 而 {@code setChunkForced} 写的强制加载标志会留在存档里。靠每 tick 一次的
+     * {@code checkRegistered} 兜底，重启后第一次 tick 就会重新对上，不会出现「标志还在、没人负责」。</p>
+     *
+     * <p>只有顶段登记：杆是四段多部分方块，四段各登记一次会让同一区块被计 4 份引用。</p>
+     */
+    private void keepOwnChunkLoaded(Level level) {
+        if (!AnvilCraftPullWires.CONFIG.transmission.crossDimensionalPoleForceload) return;
+        if (!(level instanceof ServerLevel serverLevel)) return;
+        if (this.getComponentType() != PowerComponentType.TRANSMITTER) return;
+        BlockPos pos = this.getBlockPos();
+        if (LevelLoadManager.checkRegistered(pos, serverLevel)) return;
+        // level = 0：加载区边长 2*0+1 = 1 个区块；不要随机刻。
+        LevelLoadManager.register(pos, LoadChuckData.createLoadChuckData(0, pos, false, serverLevel), serverLevel);
+    }
+
+    @Override
+    public void setRemoved() {
+        // 只在「这根杆真的没了」时解除强加载。
+        // 区块卸载 / 服务器停止时方块还在，此时**不能**解除——否则强制加载标志被一并清掉，
+        // 重启后这个区块再也不会自己加载，跨维度链路就永远回不到 ACTIVE。
+        if (this.level instanceof ServerLevel serverLevel
+            && !serverLevel.getBlockState(this.worldPosition).is(AddonBlocks.CROSS_DIMENSIONAL_POLE.get())) {
+            LevelLoadManager.unregister(this.worldPosition, serverLevel);
+        }
+        super.setRemoved();
     }
 }

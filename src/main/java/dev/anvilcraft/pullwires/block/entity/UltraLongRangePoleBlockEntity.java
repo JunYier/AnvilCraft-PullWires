@@ -1,6 +1,7 @@
 package dev.anvilcraft.pullwires.block.entity;
 
 import dev.anvilcraft.pullwires.init.AddonBlocks;
+import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.dubhe.anvilcraft.api.power.IPowerComponent;
 import dev.dubhe.anvilcraft.api.power.PowerComponentType;
 import dev.dubhe.anvilcraft.api.power.PowerGrid;
@@ -70,9 +71,15 @@ public class UltraLongRangePoleBlockEntity extends AbstractTransmissionPoleBlock
         return PowerComponentType.TRANSMITTER;
     }
 
+    /**
+     * 供电范围取自本模组配置（默认 2 格），而不是写死。
+     *
+     * <p>它的连接范围是「本体 R 的倍数」（默认 32x / 64x），两件事分开配：
+     * 供电几乎为零、连接极远，正是「超远程杆」的数值特征。</p>
+     */
     @Override
     public int getRange() {
-        return 1;
+        return PoleKind.supplyRange(PoleKind.ULTRA_LONG_RANGE);
     }
 
     /** 由方块的 ticker 调用：跟随 SWITCH 入网 / 退网，然后同步方块状态。 */

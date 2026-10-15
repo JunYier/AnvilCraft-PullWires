@@ -48,18 +48,30 @@ public enum PoleKind {
 
     // ---------------------------------------------------------------- 取值入口
 
+    /**
+     * 该种类解析后的三档范围。
+     *
+     * <p>配置里存的是「本体 R 的倍数」，这里换算成方块数（见 {@link PoleRangeRule}）。
+     * 换算一律走 {@link dev.anvilcraft.pullwires.AddonConfig.Transmission#rangesFor}，
+     * 它需要本体的 R——那是<b>服务器配置</b>，客户端读到的是登录时同步下来的值。</p>
+     */
+    public static PoleRangeRule.Ranges ranges(@Nullable PoleKind kind) {
+        return AnvilCraftPullWires.CONFIG.transmission.rangesFor(kind == null ? TRANSMISSION : kind);
+    }
+
+    /** 该种类的供电范围；本体那两种杆取本体配置，我们自己的两种取本模组配置。 */
+    public static int supplyRange(@Nullable PoleKind kind) {
+        return ranges(kind).supplyRange();
+    }
+
     /** 该种类的自动连接范围；种类未知时按本体输电杆处理。 */
     public static int autoConnectRange(@Nullable PoleKind kind) {
-        return AnvilCraftPullWires.CONFIG.transmission
-            .rangesFor(kind == null ? TRANSMISSION : kind)
-            .autoConnectRange;
+        return ranges(kind).autoConnectRange();
     }
 
     /** 该种类的手动连接范围。 */
     public static int manualConnectRange(@Nullable PoleKind kind) {
-        return AnvilCraftPullWires.CONFIG.transmission
-            .rangesFor(kind == null ? TRANSMISSION : kind)
-            .manualConnectRange;
+        return ranges(kind).manualConnectRange();
     }
 
     /** 某坐标上那根杆的自动连接范围。 */
