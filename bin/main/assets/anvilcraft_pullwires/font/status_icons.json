@@ -29,7 +29,7 @@
     },
     {
       "type": "bitmap",
-      "file": "minecraft:item/redstone_torch.png",
+      "file": "minecraft:block/redstone_torch.png",
       "height": 9,
       "ascent": 8,
       "chars": [

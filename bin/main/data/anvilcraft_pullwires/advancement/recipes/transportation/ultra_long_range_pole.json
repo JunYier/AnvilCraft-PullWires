@@ -1,0 +1,32 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_remote_transmission_pole": {
+      "conditions": {
+        "items": [
+          {
+            "items": "anvilcraft:remote_transmission_pole"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    },
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "anvilcraft_pullwires:ultra_long_range_pole"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_remote_transmission_pole"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "anvilcraft_pullwires:ultra_long_range_pole"
+    ]
+  }
+}

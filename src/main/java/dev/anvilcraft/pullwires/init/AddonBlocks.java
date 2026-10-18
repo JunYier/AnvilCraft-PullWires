@@ -10,7 +10,13 @@ import dev.dubhe.anvilcraft.api.power.IPowerComponent;
 import dev.dubhe.anvilcraft.block.RemoteTransmissionPoleBlock;
 import dev.dubhe.anvilcraft.block.item.SimpleMultiPartBlockItem;
 import dev.dubhe.anvilcraft.block.state.Vertical4PartHalf;
+import dev.dubhe.anvilcraft.init.block.ModBlocks;
+import dev.dubhe.anvilcraft.init.item.ModItems;
+import net.minecraft.advancements.Criterion;
+import net.minecraft.advancements.critereon.InventoryChangeTrigger;
 import net.minecraft.advancements.critereon.StatePropertiesPredicate;
+import net.minecraft.data.recipes.RecipeCategory;
+import net.minecraft.data.recipes.ShapedRecipeBuilder;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.Blocks;
@@ -34,12 +40,16 @@ import net.minecraft.world.level.storage.loot.providers.number.ConstantValue;
  * 本文件不需要改。</p>
  */
 public class AddonBlocks {
-    private static final String ULTRA = "ultra_long_range_pole";
-    private static final String CROSS = "cross_dimensional_pole";
 
     static {
+        // 两种杆的归属声明。**这是它们进入创造页的唯一途径**：
+        // Registrum 会监听 BuildCreativeModeTabContentsEvent，把声明了这一页的条目填进去。
+        // 千万不要再在 AddonItemGroups 的 displayItems 里手动加一遍——那会让同一物品进同一页两次，
+        // NeoForge 直接抛「already exists in the tab's list」，游戏起不来（V1.12.13 就是这么崩的）。
         REGISTRUM.defaultCreativeTab(AddonItemGroups.ADDON_ITEMS.getKey());
     }
+    private static final String ULTRA = "ultra_long_range_pole";
+    private static final String CROSS = "cross_dimensional_pole";
 
     public static final BlockEntry<UltraLongRangePoleBlock> ULTRA_LONG_RANGE_POLE = REGISTRUM.block(
             ULTRA,
@@ -63,6 +73,17 @@ public class AddonBlocks {
             }
         })
         .loot((tables, block) -> tables.add(block, bottomOnly(block)))
+        .recipe((context, provider) -> ShapedRecipeBuilder.shaped(
+                RecipeCategory.TRANSPORTATION, context.getEntry().asItem()
+            )
+            .define('F', ModItems.FROST_METAL_INGOT)
+            .define('M', ModItems.MAGNET_INGOT)
+            .define('P', ModBlocks.REMOTE_TRANSMISSION_POLE)
+            .pattern("FMF")
+            .pattern("MPM")
+            .pattern("FMF")
+            .unlockedBy("has_remote_transmission_pole", hasRemotePole())
+            .save(provider))
         .item(SimpleMultiPartBlockItem<Vertical4PartHalf>::new)
         .build()
         .tag(BlockTags.MINEABLE_WITH_PICKAXE)
@@ -90,10 +111,32 @@ public class AddonBlocks {
             }
         })
         .loot((tables, block) -> tables.add(block, bottomOnly(block)))
+        .recipe((context, provider) -> ShapedRecipeBuilder.shaped(
+                RecipeCategory.TRANSPORTATION, context.getEntry().asItem()
+            )
+            .define('T', ModItems.TRANSCENDIUM_INGOT)
+            .define('M', ModItems.MAGNET_INGOT)
+            .define('U', ULTRA_LONG_RANGE_POLE)
+            .pattern("TMT")
+            .pattern("MUM")
+            .pattern("TMT")
+            .unlockedBy("has_ultra_long_range_pole", InventoryChangeTrigger.TriggerInstance.hasItems(
+                ULTRA_LONG_RANGE_POLE.get()
+            ))
+            .save(provider))
         .item(SimpleMultiPartBlockItem<Vertical4PartHalf>::new)
         .build()
         .tag(BlockTags.MINEABLE_WITH_PICKAXE)
         .register();
+
+    /**
+     * 合成配方的解锁条件：拿到本体的远程输电桩。
+     *
+     * <p>超远程杆是从远程输电桩改出来的，所以用它当前置足够。</p>
+     */
+    private static Criterion<InventoryChangeTrigger.TriggerInstance> hasRemotePole() {
+        return InventoryChangeTrigger.TriggerInstance.hasItems(ModBlocks.REMOTE_TRANSMISSION_POLE.get());
+    }
 
     /** 与本体远程输电桩一致的四段模型选择。 */
     private static ResourceLocation poleModel(

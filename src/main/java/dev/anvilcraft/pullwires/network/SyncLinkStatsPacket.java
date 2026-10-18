@@ -63,11 +63,20 @@ public record SyncLinkStatsPacket(CompoundTag data) implements CustomPacketPaylo
     }
 
 
-    /** 单条链路的状态，客户端据此决定线色。 */
-    public record StateEntry(UUID id, LinkState state) {
+    /**
+     * 单条链路的运行期状态。
+     *
+     * <p>状态用于线色；{@code sent} / {@code received} 是本拍这条链路两端各自的量，
+     * 常驻连接列表按条显示它们——按杆汇总的 {@link Entry} 回答不了「这一条走了多少」。</p>
+     *
+     * <p>同维度链路两者相等；跨维度链路因损耗而 {@code received < sent}，差值即被耗散掉的功率。</p>
+     */
+    public record StateEntry(UUID id, LinkState state, int sent, int received) {
         public static final Codec<StateEntry> CODEC = RecordCodecBuilder.create(instance -> instance.group(
             UUIDUtil.CODEC.fieldOf("id").forGetter(StateEntry::id),
-            Codec.STRING.xmap(LinkState::valueOf, LinkState::name).fieldOf("state").forGetter(StateEntry::state)
+            Codec.STRING.xmap(LinkState::valueOf, LinkState::name).fieldOf("state").forGetter(StateEntry::state),
+            Codec.INT.fieldOf("sent").forGetter(StateEntry::sent),
+            Codec.INT.fieldOf("received").forGetter(StateEntry::received)
         ).apply(instance, StateEntry::new));
     }
 
@@ -82,13 +91,24 @@ public record SyncLinkStatsPacket(CompoundTag data) implements CustomPacketPaylo
     public List<StateEntry> states() {
         Tag tag = this.data.get(STATES_KEY);
         if (tag == null) return List.of();
-        return STATES_CODEC.parse(NbtOps.INSTANCE, tag).result().orElse(List.of());
+        return STATES_CODEC.parse(NbtOps.INSTANCE, tag)
+            // 解析失败必须留痕：以前这里静默 orElse(List.of())，
+            // 于是「解码坏了」与「本来就没有链路」在客户端看起来一模一样——
+            // 状态表一空，stateOf 就回退成默认 ACTIVE，所有线永远画成通电色。
+            .resultOrPartial(error -> AnvilCraftPullWires.LOGGER.warn(
+                "Failed to decode link states, lines will keep the last known state: {}", error
+            ))
+            .orElse(List.of());
     }
 
     public List<Entry> entries() {
         Tag tag = this.data.get(ENTRIES_KEY);
         if (tag == null) return List.of();
-        return ENTRIES_CODEC.parse(NbtOps.INSTANCE, tag).result().orElse(List.of());
+        return ENTRIES_CODEC.parse(NbtOps.INSTANCE, tag)
+            .resultOrPartial(error -> AnvilCraftPullWires.LOGGER.warn(
+                "Failed to decode link stats entries: {}", error
+            ))
+            .orElse(List.of());
     }
 
     @Override

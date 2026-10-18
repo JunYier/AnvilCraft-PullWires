@@ -56,7 +56,7 @@ public class AddonLangHandler {
             "message.anvilcraft_pullwires.manual.same_pole",
             "This pole is the stored master; it cannot be linked to itself"
         );
-        provider.add("message.anvilcraft_pullwires.manual.cancelled", "Pending link cancelled");
+        provider.add("message.anvilcraft_pullwires.manual.cancelled", "Too far from the master; binding cleared");
         provider.add(
             "message.anvilcraft_pullwires.manual.duplicate_direction",
             "A link in this direction already exists"
@@ -69,15 +69,45 @@ public class AddonLangHandler {
         provider.add("message.anvilcraft_pullwires.priority.limit", "Priority is already %s (range 0-15)");
         provider.add("message.anvilcraft_pullwires.lock.locked", "Locked: this pole ignores redstone switching");
         provider.add("message.anvilcraft_pullwires.lock.unlocked", "Unlocked: this pole follows redstone again");
+        provider.add("message.anvilcraft_pullwires.sort.saved", "Reconnect sorting: applied to this pole");
+
+        provider.add("screen.anvilcraft_pullwires.pole_sort.title", "Pole reconnect sorting");
+        provider.add(
+            "screen.anvilcraft_pullwires.pole_sort.roles",
+            "Primary factor = %s, secondary factor = %s"
+        );
+        provider.add(
+            "screen.anvilcraft_pullwires.pole_sort.time",
+            "Time factor: ascending (fixed; earlier links are considered first)"
+        );
+        provider.add("screen.anvilcraft_pullwires.pole_sort.factor", "First: %s");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.factor.priority", "priority");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.factor.demand", "demand");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.primary.asc", "Primary: ascending");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.primary.desc", "Primary: descending");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.secondary.asc", "Secondary: ascending");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.secondary.desc", "Secondary: descending");
+        provider.add(
+            "screen.anvilcraft_pullwires.pole_sort.priority",
+            "Priority: %s (point at a wheel section or scroll to choose, then left-click the wheel)"
+        );
 
         provider.add("tooltip.anvilcraft_pullwires.grid_information.exchange", "Total exchanged: %s");
-        provider.add("tooltip.anvilcraft_pullwires.link.master", "Pull Wires (master):");
-        provider.add("tooltip.anvilcraft_pullwires.link.slave", "Pull Wires (slave):");
-        provider.add("tooltip.anvilcraft_pullwires.link.both", "Pull Wires (master / slave):");
+        provider.add("tooltip.anvilcraft_pullwires.link.header", "Pull Wires:");
+        provider.add("tooltip.anvilcraft_pullwires.link.upstream", "%s>>slave");
+        provider.add("tooltip.anvilcraft_pullwires.link.downstream", "master>>%s");
         provider.add("tooltip.anvilcraft_pullwires.link.send", "Sending: %s");
         provider.add("tooltip.anvilcraft_pullwires.link.receive", "Receiving: %s");
         provider.add("tooltip.anvilcraft_pullwires.link.priority", "Priority: %s");
         provider.add("tooltip.anvilcraft_pullwires.locked", "Locked");
+        provider.add("tooltip.anvilcraft_pullwires.item.hold_ctrl", "Hold [%s] for binding details");
+        provider.add("tooltip.anvilcraft_pullwires.item.ranges", "Ranges:");
+        provider.add("tooltip.anvilcraft_pullwires.item.supply", "Supply range: %s blocks");
+        provider.add("tooltip.anvilcraft_pullwires.item.auto", "Auto-connect range: %s blocks");
+        provider.add("tooltip.anvilcraft_pullwires.item.manual", "Manual connect range: %s blocks");
+        provider.add("tooltip.anvilcraft_pullwires.item.unlimited", "No distance limit");
+        provider.add("tooltip.anvilcraft_pullwires.item.bound", "Bound to master: %s (%s)");
+        provider.add("tooltip.anvilcraft_pullwires.item.unbound", "Not bound (right-click a pole to bind, shift right-click to clear)");
         provider.add("bossbar.anvilcraft_pullwires.manual_link", "Connect distance %s / %s (break at %s)");
         provider.add("bossbar.anvilcraft_pullwires.cross_dimension", "Cross dimensional link: no distance limit");
 
@@ -87,13 +117,46 @@ public class AddonLangHandler {
         );
         provider.add("command.anvilcraft_pullwires.display.on", "Connection list: always on display");
         provider.add("command.anvilcraft_pullwires.display.off", "Connection list: hidden");
+        provider.add(
+            "command.anvilcraft_pullwires.guide.missing",
+            "Ageratum is not installed, so the in-game guide cannot be opened"
+        );
+        provider.add("command.anvilcraft_pullwires.guide.opened", "Opened the Pull Wires guide");
         provider.add("hud.anvilcraft_pullwires.connection_list.header", "Links (%s)");
         provider.add("hud.anvilcraft_pullwires.connection_list.more", "%s more...");
+        provider.add("hud.anvilcraft_pullwires.connection_list.transfer", "  - %s");
+        provider.add(
+            "hud.anvilcraft_pullwires.connection_list.transfer_lossy",
+            "  - %s to %s (with loss)"
+        );
         provider.add("key.categories.anvilcraft_pullwires", "Pull Wires");
-        provider.add("key.anvilcraft_pullwires.priority_adjust", "Adjust priority");
+        provider.add("key.anvilcraft_pullwires.pole_config", "Pole settings page");
 
         provider.add("dimension.minecraft.overworld", "Overworld");
         provider.add("dimension.minecraft.the_nether", "The Nether");
         provider.add("dimension.minecraft.the_end", "The End");
+
+        // Jade 会为每个 provider 的配置项查这个键，缺失时会直接抛 AssertionError
+        // （Missing config translation），表现是插件设置里显示原始键值、日志里刷红色异常。
+        provider.add("config.jade.plugin_anvilcraft_pullwires.pole_info", "Pull Wires: Pole Info");
+
+        provider.add(
+            "jei.anvilcraft_pullwires.ultra_long_range_pole",
+            """
+            Ultra Long Range Pole: almost no supply range (2 blocks by default), but a huge auto-connect \
+            range (256 blocks by default).
+            Use it to merge two far apart grids into one without stringing poles all the way.
+            Connection ranges are configured as multiples of AnvilCraft's Transmission Pole R, so changing \
+            that R never breaks existing saves."""
+        );
+        provider.add(
+            "jei.anvilcraft_pullwires.cross_dimensional_pole",
+            """
+            Cross Dimensional Pole: supplies nothing, never auto-connects and never draws a power line. \
+            It is purely an endpoint for binding links.
+            Two of them can link across dimensions, with no distance limit.
+            While the link is live both tops emit portal particles; the pole also keeps its own single \
+            chunk loaded so the transfer keeps running unattended."""
+        );
     }
 }

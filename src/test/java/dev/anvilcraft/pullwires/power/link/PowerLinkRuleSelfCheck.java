@@ -32,21 +32,32 @@ public final class PowerLinkRuleSelfCheck {
         expectTrue("远程桩不被压短", PowerLinkRule.linkRange(16, AUTO_RANGE) == 16);
         expectTrue("供电范围为 0 时取 autoR", PowerLinkRule.linkRange(0, AUTO_RANGE) == AUTO_RANGE);
 
-        // 直线距离语义：恰好等于范围算相连，刚超出就不相连
-        expectTrue("恰好 12 格应相连", PowerLinkRule.linked(node(0, 0, 0, 12), node(12, 0, 0, 12)));
-        expectTrue("刚超过 12 格不应相连", !PowerLinkRule.linked(node(0, 0, 0, 12), node(12.01, 0, 0, 12)));
-        expectTrue("斜向 12 格应相连", PowerLinkRule.linked(node(0, 0, 0, 12), node(8.4852813, 0, 8.4852813, 12)));
+        // ---- 杆间组网：三轴分量的最大者（「曼哈顿距离的长边长度」）与范围比较 ----
+        expectTrue("贴在一起应相连", PowerLinkRule.linked(node(0, 0, 0, 12), node(1, 0, 0, 12)));
+        expectTrue("恰好等于范围应相连", PowerLinkRule.linked(node(0, 0, 0, 12), node(12, 0, 0, 12)));
+        expectTrue("刚超过范围不应相连", !PowerLinkRule.linked(node(0, 0, 0, 12), node(12.01, 0, 0, 12)));
+        expectTrue("范围之外不相连", !PowerLinkRule.linked(node(0, 0, 0, 12), node(20, 0, 0, 12)));
+
+        // 关键回归一（用户报过）：斜角方向必须与本体立方体几何一致。
+        // 直线距离版本在 (12,0,12) 处算出 17 格而判定相连失败；本体盒子在斜角能到 (R+0.5)·√3。
+        expectTrue("斜角 (12,0,12) 应相连（直线距离版本会在这里失败）",
+            PowerLinkRule.linked(node(0, 0, 0, 12), node(12, 0, 12, 12)));
+        expectTrue("斜角超出范围仍不相连", !PowerLinkRule.linked(node(0, 0, 0, 12), node(13, 0, 13, 12)));
         expectTrue("垂直方向同样生效", PowerLinkRule.linked(node(0, 0, 0, 12), node(0, 12, 0, 12)));
         expectTrue("垂直方向超出即断开", !PowerLinkRule.linked(node(0, 0, 0, 12), node(0, 12.01, 0, 12)));
 
-        // 关键回归：包围盒语义下 25 格也会「相交」，直线距离必须判为不相连
-        expectTrue("25 格在直线距离下不相连", !PowerLinkRule.linked(node(0, 0, 0, 12), node(25, 0, 0, 12)));
+        // 关键回归二：有效距离必须是 R 而不是 2R+1，否则「自动组网范围」会反超「手动连接范围」，
+        // 手动连接就再也找不到任何可连对象了。
+        expectTrue("25 格（旧盒子相交版本会相连）必须不相连",
+            !PowerLinkRule.linked(node(0, 0, 0, 12), node(25, 0, 0, 12)));
 
-        // 两端范围取较大者，保证「大范围的一方能够到」
-        expectTrue(
-            "取两端较大范围",
-            PowerLinkRule.linked(node(0, 0, 0, SUPPLY_RANGE), node(11, 0, 0, AUTO_RANGE))
-        );
+        // 两端取较大者，保证「大范围的一方能够到」
+        expectTrue("取两端较大范围", PowerLinkRule.linked(node(0, 0, 0, SUPPLY_RANGE), node(11, 0, 0, AUTO_RANGE)));
+        expectTrue("两端都小则够不着", !PowerLinkRule.linked(node(0, 0, 0, 2), node(10, 0, 0, 2)));
+
+        // 长边长度本身
+        expectTrue("长边长度取三轴最大分量", PowerLinkRule.boxDistance(0, 0, 0, 3, -5, 4) == 5.0);
+        expectTrue("长边长度恒非负", PowerLinkRule.boxDistance(3, 3, 3, 3, 3, 3) == 0.0);
 
         // 并网判定一：候选杆的供电框与电网中机器的供电框相交（贴着机器放杆）
         expectTrue("贴近机器应能并网", PowerLinkRule.canTransmitterJoin(

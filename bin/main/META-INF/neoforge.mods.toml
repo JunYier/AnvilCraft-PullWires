@@ -79,6 +79,30 @@ versionRange = "[1.5.0,)"
 ordering = "NONE"
 side = "BOTH"
 
+# 藿香是本体的前置模组，负责游戏内渲染 Markdown 手册。
+# 声明为 optional：没有它本模组照常工作，只是 /wires guide 会提示未安装。
+[[dependencies."anvilcraft_pullwires"]]
+modId = "ageratum"
+type = "optional"
+versionRange = "[0.0.1,)"
+ordering = "NONE"
+side = "BOTH"
+
+# 信息浮层与配方查看：都是可选集成，只加自己的那几行，不接管它们的主界面。
+[[dependencies."anvilcraft_pullwires"]]
+modId = "jade"
+type = "optional"
+versionRange = "[15.10.0,)"
+ordering = "AFTER"
+side = "CLIENT"
+
+[[dependencies."anvilcraft_pullwires"]]
+modId = "jei"
+type = "optional"
+versionRange = "[19.19.0.219,)"
+ordering = "AFTER"
+side = "BOTH"
+
 # Features are specific properties of the game environment, that you may want to declare you require. This example declares
 # that your mod requires GL version 3.2 or higher. Other features will be added. They are side aware so declaring this won't
 # stop your mod loading on the server for example.

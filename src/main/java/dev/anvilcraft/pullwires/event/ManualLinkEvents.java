@@ -1,6 +1,7 @@
 package dev.anvilcraft.pullwires.event;
 
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
+import dev.anvilcraft.pullwires.block.entity.CrossDimensionalPoleBlockEntity;
 import dev.anvilcraft.pullwires.network.AddonNetwork;
 import dev.anvilcraft.pullwires.power.link.LinkBinding;
 import dev.anvilcraft.pullwires.power.link.ManualLinkSessions;
@@ -174,6 +175,12 @@ public class ManualLinkEvents {
         PoleKey key = PoleKey.of(level, top);
         boolean hadLinks = !registry.linksOf(key).isEmpty();
         registry.removePole(key);
+        // 跨维度杆会强加载自己那一格，拆掉时释放。
+        // 放在这里而不是方块实体的 setRemoved()：后者在服务器关停 / 区块卸载时也会触发，
+        // 那时动 setChunkForced 会把「Saving worlds」卡死（见 CrossDimensionalPoleBlockEntity）。
+        if (level.getBlockEntity(top) instanceof CrossDimensionalPoleBlockEntity pole) {
+            pole.releaseChunkLoad();
+        }
         if (hadLinks) AddonNetwork.broadcastRegistry(level.getServer());
     }
 }

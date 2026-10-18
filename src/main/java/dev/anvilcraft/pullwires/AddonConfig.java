@@ -8,6 +8,7 @@ import dev.anvilcraft.lib.v2.config.Config;
 import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.anvilcraft.pullwires.power.link.PolePriority;
 import dev.anvilcraft.pullwires.power.link.PoleRangeRule;
+import dev.anvilcraft.pullwires.power.link.ReconnectPolicy;
 import dev.dubhe.anvilcraft.AnvilCraft;
 
 /**
@@ -42,30 +43,32 @@ public class AddonConfig {
         // （machines.powerTransmitterRange 默认 8），写成方块数的话，玩家一调大 R，
         // 旧存档里已经放好的杆就会出现 R_supply > R_auto 的越界并报错。
         // 换算规则见 PoleRangeRule。
+        // 距离一律取「长边长度」max(|dx|,|dy|,|dz|)，不是直线距离：自动组网与手动连接共用这一个标量，
+        // 同量纲才能保证 R_supply ≤ R_auto ≤ R_manual。
 
         @SerializedName("Transmission Pole")
         @Comment("Ranges of AnvilCraft's own Transmission Pole, as multiples of its own supply range R")
         @CollapsibleObject
-        public BodyPoleRanges transmissionPole = BodyPoleRanges.of(1.5, 2.0);
+        public BodyPoleRanges transmissionPole = BodyPoleRanges.of(1.5, 2.5);
 
         @SerializedName("Remote Transmission Pole")
         @Comment("Ranges of AnvilCraft's own Remote Transmission Pole, as multiples of its own supply range R")
         @CollapsibleObject
-        public BodyPoleRanges remoteTransmissionPole = BodyPoleRanges.of(1.5, 2.0);
+        public BodyPoleRanges remoteTransmissionPole = BodyPoleRanges.of(1.5, 2.5);
 
         @SerializedName("Ultra Long Range Pole")
         @Comment(
             """
             Ranges of the Ultra Long Range Pole
             It supplies almost nothing; its connection ranges are multiples of AnvilCraft's Transmission Pole R
-            So the default 32x / 64x means 256 / 512 blocks while R stays at its default of 8
+            So the default 16x / 32x means 128 / 256 blocks while R stays at its default of 8
             """
         )
         @CollapsibleObject
-        public AddonPoleRanges ultraLongRangePole = AddonPoleRanges.of(2, 32.0, 64.0);
+        public AddonPoleRanges ultraLongRangePole = AddonPoleRanges.of(2, 16.0, 32.0);
 
         @SerializedName("Cross Dimensional Pole")
-        @Comment("Ranges of the Cross Dimensional Pole: it supplies nothing and never auto-connects; linking only")
+        @Comment("Ranges of the Cross Dimensional Pole. It is an ordinary pole with supply 0 and auto-connect 0, so it only joins a grid it physically touches; its manual range is unlimited and it may link across dimensions")
         @CollapsibleObject
         public AddonPoleRanges crossDimensionalPole = AddonPoleRanges.of(0, 0.0, 0.0);
 
@@ -154,11 +157,11 @@ public class AddonConfig {
             @BoundedDiscrete(min = 0, max = 8)
             public int supplyRange;
 
-            @Comment("Auto-connect range as a multiple of AnvilCraft's Transmission Pole R (0 = never auto-connects)")
+            @Comment("Auto-connect range as a multiple of AnvilCraft's Transmission Pole R. 0 means a zero-size range, i.e. it only auto-connects with a pole it physically touches")
             @BoundedDiscrete(min = 0.0, max = 64.0)
             public double autoConnectMultiplier;
 
-            @Comment("Manual connect range as a multiple of that R (0 = manual linking disabled)")
+            @Comment("Manual connect range as a multiple of that R. 0 means the pole is subject to no distance limit at all")
             @BoundedDiscrete(min = 0.0, max = 64.0)
             public double manualConnectMultiplier;
 
@@ -238,13 +241,67 @@ public class AddonConfig {
         @BoundedDiscrete(min = 0, max = 7200)
         public int manualLinkReconnectCooldown = 100;
 
-        @Comment("How long the slave's grid must keep working before it may request a reconnect, in ticks")
-        @BoundedDiscrete(min = 1, max = 1200)
-        public int reconnectStableTicks = 100;
-
-        @Comment("How often a stable slave grid requests a reconnect, in ticks")
+        @Comment(
+            """
+            How often a suspended slave pole requests a reconnect, in ticks
+            The master approves when its average surplus over the recent window covers the slave's average demand
+            """
+        )
         @BoundedDiscrete(min = 20, max = 7200)
-        public int reconnectRequestInterval = 100;
+        public int reconnectRequestInterval = 200;
+
+        @SerializedName("Reconnect Sort")
+        @Comment(
+            """
+            Save-wide default ordering of reconnect requests
+            Copied once into every pole that has no ordering of its own yet, on the first settlement tick after the world loads
+            Poles that already have their own ordering are skipped and never overwritten
+            Any pole can be retuned in its own settings page (Anvil Hammer + the pole config hotkey + right-click)
+            The time factor is always ascending and is not configurable
+            """
+        )
+        @CollapsibleObject
+        public ReconnectSort reconnectSort = new ReconnectSort();
+
+        /**
+         * 存档级默认的重连申请排序：一个「主因素是谁」的开关加两个方向开关。
+         *
+         * <p><b>为什么不用 {@link ReconnectPolicy.Factor} 这个枚举做配置项</b>：配置系统只为实现了
+         * {@code TranslatableEnum} 的枚举生成语言键，普通枚举在配置界面里会直接显示原始名字。
+         * 三个布尔量既没有这个问题，也不依赖配置系统对枚举的支持程度。</p>
+         *
+         * <p>映射成策略只有 {@link ReconnectPolicy#ofFlags} 一条路（有自检）。</p>
+         */
+        public static class ReconnectSort {
+            @Comment(
+                """
+                true  = rank reconnect requests by demand (the slave's average deficit) first
+                false = rank them by priority (the slave pole's settlement priority) first
+                """
+            )
+            public boolean demandFirst = false;
+
+            @Comment(
+                """
+                Whether the primary factor is ascending
+                Ascending means small values are served first
+                """
+            )
+            public boolean primaryAscending = true;
+
+            @Comment(
+                """
+                Whether the secondary factor is ascending
+                The secondary factor is always the one that is not the primary factor
+                """
+            )
+            public boolean secondaryAscending = true;
+
+            /** 本组配置对应的策略。 */
+            public ReconnectPolicy policy() {
+                return ReconnectPolicy.ofFlags(this.demandFirst, this.primaryAscending, this.secondaryAscending);
+            }
+        }
     }
 
     public static class Linking {

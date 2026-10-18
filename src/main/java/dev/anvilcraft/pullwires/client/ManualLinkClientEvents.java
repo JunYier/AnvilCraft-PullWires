@@ -6,6 +6,7 @@ import dev.anvilcraft.pullwires.power.link.LinkBinding;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
 import dev.anvilcraft.pullwires.power.link.LinkState;
 import dev.anvilcraft.pullwires.power.link.PoleKey;
+import dev.anvilcraft.pullwires.power.link.PowerLinkRule;
 import dev.dubhe.anvilcraft.client.renderer.Line;
 import dev.dubhe.anvilcraft.item.DiskItem;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -85,12 +86,17 @@ public class ManualLinkClientEvents {
         if (!holdingPole && !holdingDisk) return;
 
         Vec3 from = ManualLinkAim.masterHead(bound.master().pos());
-        Vec3 to = ManualLinkAim.placementHead(minecraft);
+        // 优先落在**视角指着的那根杆**的杆顶（磁盘那一路）；
+        // 没指着杆时退回放置预览头部（手持杆准备放下的那一路）。
+        Vec3 to = ManualLinkAim.aimedPoleHead(minecraft);
+        if (to == null) to = ManualLinkAim.placementHead(minecraft);
         if (to == null) return;
         // 范围取自**主端**的种类：服务端的放置判定用的是主端的范围（含「跨维度杆无距离限制」），
         // 这里必须同源，否则会出现「看着在范围内，放下却被拒绝」。
+        // 距离也必须与服务端同一个标量（长边长度），否则引导带会在还能连的位置提前消失。
         if (!PoleKind.unlimitedConnectDistance(bound.kind())
-            && from.distanceTo(to) > PoleKind.manualConnectRange(bound.kind())) return;
+            && PowerLinkRule.boxDistance(from.x, from.y, from.z, to.x, to.y, to.z)
+               > PoleKind.manualConnectRange(bound.kind())) return;
 
         spawnSparks(level, from, to);
     }
@@ -208,6 +214,9 @@ public class ManualLinkClientEvents {
         for (LinkDefinition definition : links) {
             // 跨维度链路与「端点涉及跨维度杆」的链路都不画线，判定见 ClientLinkVisibility。
             if (!ClientLinkVisibility.drawsLine(level, definition)) continue;
+            // 端点用方块中心：**与本体自己的电力线同高**。之前我把它抬到杆顶，
+            // 结果本模组的线比本体的高半格——同一条走廊上两种线一高一低，很难看。
+            // 「杆顶」只是粒子束的锚点，不是连接线的。
             Vec3 from = Vec3.atCenterOf(definition.master().pos());
             Vec3 to = Vec3.atCenterOf(definition.slave().pos());
             new Line(from, to, (float) from.distanceTo(to))

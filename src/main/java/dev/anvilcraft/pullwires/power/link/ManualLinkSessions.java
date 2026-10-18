@@ -78,7 +78,50 @@ public final class ManualLinkSessions {
             hideBar(player);
             return;
         }
-        showBar(player, bound);
+
+        double distance = distanceToMaster(player, bound.master());
+        // 跑得太远就自动断掉绑定：这是「拿着杆到处走」这个用法唯一的安全阀，
+        // 否则玩家会带着一个早已超出范围、放下去必然失败的绑定到处跑。
+        // 与超距放置失败共用同一个音符盒音效。
+        if (shouldCancel(bound, distance)) {
+            LinkBinding.clear(carrier);
+            playFailureSound(player);
+            player.displayClientMessage(
+                message("manual.cancelled").withStyle(ChatFormatting.RED), true
+            );
+            hideBar(player);
+            return;
+        }
+
+        showBar(player, bound, distance);
+    }
+
+    /**
+     * 玩家眼睛到主端<b>杆顶</b>的距离标量（与 Boss 条、放置判定同一个口径）。
+     *
+     * <p>锚点用「顶段方块的上表面中心」而不是方块中心：{@code master.pos()} 是顶段，
+     * 方块中心比杆顶低半格，四格杆上这个偏差更明显——这正是 Boss 条读数与粒子束两端对不上的来源。
+     * 客户端那边同一个锚点由 {@code ManualLinkAim.masterHead} 给出，两边必须一致。</p>
+     */
+    private static double distanceToMaster(ServerPlayer player, PoleKey master) {
+        Vec3 head = Vec3.atBottomCenterOf(master.pos()).add(0.0, 1.0, 0.0);
+        Vec3 eyes = player.getEyePosition();
+        // 长边长度而不是直线距离：手动连接范围必须与自动连接范围同量纲，见 ManualLinkRule。
+        return PowerLinkRule.boxDistance(head.x, head.y, head.z, eyes.x, eyes.y, eyes.z);
+    }
+
+    /**
+     * 是否已经离得太远，应当自动解除绑定。
+     *
+     * <p>阈值是 {@code 主端 R_manual × cancelDistanceMultiplier}（默认 2 倍）——
+     * 也就是 Boss 条红色段填满的那一刻。跨维度杆不受距离限制，因此永远不触发。</p>
+     */
+    private static boolean shouldCancel(LinkBinding.Bound bound, double distance) {
+        if (PoleKind.unlimitedConnectDistance(bound.kind())) return false;
+        int range = PoleKind.manualConnectRange(bound.kind());
+        if (range <= 0) return false;
+        double multiplier = AnvilCraftPullWires.CONFIG.transmission.cancelDistanceMultiplier;
+        return distance > range * multiplier;
     }
 
     /** 「副手磁盘也能触发建链」的配置开关。 */
@@ -160,9 +203,15 @@ public final class ManualLinkSessions {
         boolean targetCross = PoleKind.of(level.getBlockState(targetTop)) == PoleKind.CROSS_DIMENSIONAL;
 
         // 跨维度时两端坐标不在同一个坐标系里，距离没有意义；判定函数内部会跳过距离那一档。
+        // 同维度时用量纲与自动组网一致的长边长度（见 ManualLinkRule）。
+        Vec3 targetCenter = Vec3.atCenterOf(targetTop);
+        Vec3 masterCenter = Vec3.atCenterOf(master.pos());
         double distance = acrossDimensions
             ? 0.0
-            : Vec3.atCenterOf(targetTop).distanceTo(Vec3.atCenterOf(master.pos()));
+            : PowerLinkRule.boxDistance(
+                targetCenter.x, targetCenter.y, targetCenter.z,
+                masterCenter.x, masterCenter.y, masterCenter.z
+            );
         int range = PoleKind.manualConnectRange(masterKind);
 
         CrossDimensionRule.Verdict verdict = CrossDimensionRule.verdict(
@@ -208,7 +257,7 @@ public final class ManualLinkSessions {
      * <p>进度由 {@link ManualLinkRule#barProgress} 给出：前 3/4 绿、后 1/4 红，两段各自线性。
      * 用原版 {@link ServerBossEvent} 只发给本人，不需要任何客户端 Mixin。</p>
      */
-    private static void showBar(ServerPlayer player, LinkBinding.Bound bound) {
+    private static void showBar(ServerPlayer player, LinkBinding.Bound bound, double distance) {
         ServerBossEvent bar = BARS.get(player.getUUID());
         if (bar == null) {
             bar = new ServerBossEvent(
@@ -231,7 +280,6 @@ public final class ManualLinkSessions {
 
         int range = PoleKind.manualConnectRange(bound.kind());
         double multiplier = AnvilCraftPullWires.CONFIG.transmission.cancelDistanceMultiplier;
-        double distance = Vec3.atCenterOf(bound.master().pos()).distanceTo(player.getEyePosition());
         boolean inRange = distance <= range;
 
         bar.setProgress(ManualLinkRule.barProgress(distance, range, multiplier));

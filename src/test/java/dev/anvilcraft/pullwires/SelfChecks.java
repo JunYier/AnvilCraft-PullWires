@@ -7,6 +7,8 @@ import dev.anvilcraft.pullwires.power.link.ManualLinkRuleSelfCheck;
 import dev.anvilcraft.pullwires.power.link.PoleRangeRuleSelfCheck;
 import dev.anvilcraft.pullwires.power.link.PoleRuntimeSelfCheck;
 import dev.anvilcraft.pullwires.power.link.PowerLinkRuleSelfCheck;
+import dev.anvilcraft.pullwires.power.link.ReconnectPolicySelfCheck;
+import dev.anvilcraft.pullwires.power.link.RollingAverageSelfCheck;
 
 /**
  * 附属模组全部纯逻辑自检的统一入口，由 Gradle 任务 {@code verifyAddon} 运行。
@@ -27,6 +29,8 @@ public final class SelfChecks {
         failures += LinkRuntimeSelfCheck.run();
         failures += CrossDimensionSelfCheck.run();
         failures += PoleRangeRuleSelfCheck.run();
+        failures += ReconnectPolicySelfCheck.run();
+        failures += RollingAverageSelfCheck.run();
 
         if (failures > 0) {
             System.out.println("[pullwires] self-check FAILED: " + failures + " failed assertion(s)");

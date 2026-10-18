@@ -3,6 +3,7 @@ package dev.anvilcraft.pullwires.client;
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
 import dev.anvilcraft.pullwires.power.link.PoleKind;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
+import dev.anvilcraft.pullwires.power.link.PowerLinkRule;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -68,15 +69,23 @@ public final class PlacementHintHud {
      *
      * <p>客户端没有完整的杆清单，因此用两个来源近似：已同步的链路端点（精确）
      * 与本体电网的覆盖判定（兜底，覆盖那些还没建立任何链路的杆）。</p>
+     *
+     * <p>距离必须与 {@link dev.anvilcraft.pullwires.power.link.PowerLinkRule#linked}
+     * 用同一个标量，否则提示的位置和真正会并网的位置对不上。</p>
      */
     private static boolean withinAutoConnectRange(Minecraft minecraft, BlockPos placement) {
         int range = PoleKind.autoConnectRangeOfItem(minecraft.player.getMainHandItem());
         Vec3 center = Vec3.atCenterOf(placement);
         for (LinkDefinition definition : ManualLinkClientState.links()) {
             if (!definition.master().dimension().equals(minecraft.level.dimension())) continue;
-            if (Vec3.atCenterOf(definition.master().pos()).distanceTo(center) <= range) return true;
-            if (Vec3.atCenterOf(definition.slave().pos()).distanceTo(center) <= range) return true;
+            if (within(definition.master().pos(), center, range)) return true;
+            if (within(definition.slave().pos(), center, range)) return true;
         }
         return dev.dubhe.anvilcraft.api.power.SimplePowerGrid.findPowerGrid(placement).isPresent();
+    }
+
+    private static boolean within(BlockPos pole, Vec3 center, int range) {
+        Vec3 pos = Vec3.atCenterOf(pole);
+        return PowerLinkRule.boxDistance(pos.x, pos.y, pos.z, center.x, center.y, center.z) <= range;
     }
 }

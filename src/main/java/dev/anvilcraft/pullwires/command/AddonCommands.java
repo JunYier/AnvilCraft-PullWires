@@ -3,6 +3,7 @@ package dev.anvilcraft.pullwires.command;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
+import dev.anvilcraft.pullwires.compat.AgeratumGuide;
 import dev.anvilcraft.pullwires.network.AddonNetwork;
 import dev.anvilcraft.pullwires.power.link.LinkDefinition;
 import dev.anvilcraft.pullwires.power.link.LinkState;
@@ -20,6 +21,8 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import org.jetbrains.annotations.Nullable;
 
@@ -49,29 +52,57 @@ public final class AddonCommands {
     }
 
     public static void register(RegisterCommandsEvent event) {
+        // 权限要求下沉到子命令：手册与列表是只读的，不该要求 OP；
+        // 而 link / unlink / clear 能凭空把两座不相邻的电网接起来或清空，必须 OP。
         event.getDispatcher().register(
             Commands.literal("wires")
-                .requires(source -> source.hasPermission(2))
+                .then(Commands.literal("guide").executes(AddonCommands::guide))
+                .then(Commands.literal("list").executes(AddonCommands::list))
                 .then(Commands.literal("link")
+                    .requires(OP_ONLY)
                     .then(Commands.argument("posA", BlockPosArgument.blockPos())
                         .then(Commands.argument("posB", BlockPosArgument.blockPos())
                             .executes(AddonCommands::link))))
                 .then(Commands.literal("unlink")
+                    .requires(OP_ONLY)
                     .then(Commands.argument("posA", BlockPosArgument.blockPos())
                         .then(Commands.argument("posB", BlockPosArgument.blockPos())
                             .executes(AddonCommands::unlink))))
-                .then(Commands.literal("list").executes(AddonCommands::list))
                 // 清空是破坏性操作，要求显式 confirm，避免手滑。
-            .then(Commands.literal("clear")
-                .executes(context -> {
-                    send(
-                        context.getSource(),
-                        prefix().append(translatable("clear.confirm_hint", ChatFormatting.YELLOW))
-                    );
-                    return 0;
-                })
-                .then(Commands.literal("confirm").executes(AddonCommands::clear)))
+                .then(Commands.literal("clear")
+                    .requires(OP_ONLY)
+                    .executes(context -> {
+                        send(
+                            context.getSource(),
+                            prefix().append(translatable("clear.confirm_hint", ChatFormatting.YELLOW))
+                        );
+                        return 0;
+                    })
+                    .then(Commands.literal("confirm").executes(AddonCommands::clear)))
         );
+    }
+
+    /** 破坏性 / 影响他网的操作所需的权限等级。 */
+    private static final java.util.function.Predicate<CommandSourceStack> OP_ONLY =
+        source -> source.hasPermission(2);
+
+    /**
+     * 在游戏内打开本模组手册（藿香 / Ageratum）。
+     *
+     * <p>藿香是可选依赖：没装时给一句明确提示，而不是抛 {@code NoClassDefFoundError}。</p>
+     */
+    private static int guide(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        CommandSourceStack source = context.getSource();
+        ServerPlayer player = source.getPlayerOrException();
+        if (!ModList.get().isLoaded(AgeratumGuide.MOD_ID)) {
+            send(source, prefix().append(translatable("guide.missing", ChatFormatting.RED)));
+            return 0;
+        }
+        AgeratumGuide.open(player);
+        // 藿香在文档不存在时是静默忽略的，所以这里必须自己给一句反馈，
+        // 否则「命令没反应」会被当成命令没生效。
+        send(source, prefix().append(translatable("guide.opened", ChatFormatting.GREEN)));
+        return 1;
     }
 
     private static int link(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {

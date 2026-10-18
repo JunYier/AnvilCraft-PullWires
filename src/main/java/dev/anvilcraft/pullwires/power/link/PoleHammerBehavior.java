@@ -15,9 +15,10 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 
 import javax.annotation.Nullable;
+import java.util.Optional;
 
 /**
- * 铁砧锤在输电杆上的交互：右键切换锁定，滚轮调整优先级。
+ * 铁砧锤在输电杆上的交互：右键切换锁定，Ctrl + 右键打开该杆的重连排序配置页。
  *
  * <p>本体自己就为「铁砧锤右键改方块」提供了扩展点 {@code HammerManager}，
  * 所以这里不需要 Mixin：把行为注册给输电杆方块即可，{@code AnvilHammerItem} 会在
@@ -25,7 +26,13 @@ import javax.annotation.Nullable;
  *
  * <h2>为什么锁定不是「冻结优先级」</h2>
  * <p>需求把锁定定义为<b>忽略外部红石信号造成的 {@code SWITCH} 切换</b>。
- * 也就是说锁定只影响红石，优先级任何时候都能用滚轮改——两者互不干扰。</p>
+ * 也就是说锁定只影响红石，优先级任何时候都能改——两者互不干扰。</p>
+ *
+ * <h2>优先级从哪改（V1.12.12 起）</h2>
+ * <p>原来的「按住 Ctrl 滚动滚轮」<b>已经并入配置页</b>：页面上那个径向轮盘就是它，
+ * 页面的滚轮/指向负责选值、左键确认。世界上不再留第二条调整优先级的通路，
+ * 但服务端的写入路径仍是这里的 {@link #adjustPriority}（客户端在页面上算出增量后发给它），
+ * 因此「数值一律由服务端在权威数据上夹取」这条性质没有变。</p>
  */
 public class PoleHammerBehavior implements dev.dubhe.anvilcraft.api.hammer.IHammerChangeable {
     public static final PoleHammerBehavior INSTANCE = new PoleHammerBehavior();
@@ -61,6 +68,47 @@ public class PoleHammerBehavior implements dev.dubhe.anvilcraft.api.hammer.IHamm
         AddonNetwork.broadcastRegistry(player.server);
         // 不再打印「优先级 7 → 8」的动作条消息：目标杆的实时数值由铁砧锤 tooltip 承担，
         // 每滚一格刷一条消息只会淹没聊天栏。
+    }
+
+    // ------------------------------------------------------------------ 配置页：重连排序
+
+    /**
+     * 写入某根杆的重连申请排序设定（配置页上的三个按钮走这一条）。
+     *
+     * <p>与 {@link #adjustPriority} 同一个套路：客户端只说「按了哪个开关」，
+     * 这里在权威数据上拼出策略并落进 {@code PoleConfig}，然后整体广播注册表——
+     * 广播既是给别的玩家看的，也是给<b>这台客户端自己</b>看的：页面上的当前值直接读镜像，
+     * 不另存一份可写状态。</p>
+     *
+     * <p>V1.12.13 起写的就是<b>这根杆自己</b>的设定，没有「要不要覆盖」这个入参：
+     * 页面上按一按 = 直接落到本杆，存档级默认只在进世界补齐时作为一份快照被复制进来
+     * （见 {@code WireLinkRegistry.backfillReconnectPolicies}）。</p>
+     *
+     * @param clicked            玩家点击的任意一段坐标
+     * @param demandFirst        主因素是不是「需求」
+     * @param primaryAscending   主因素是否升序
+     * @param secondaryAscending 副因素是否升序
+     */
+    public static void setReconnectSort(
+        ServerPlayer player,
+        BlockPos clicked,
+        boolean demandFirst,
+        boolean primaryAscending,
+        boolean secondaryAscending
+    ) {
+        BlockPos top = PoleResolver.resolveTop(player.level(), clicked);
+        if (top == null) return;
+
+        WireLinkRegistry registry = WireLinkRegistry.get(player.server);
+        PoleKey key = PoleKey.of(player.level(), top);
+        ReconnectPolicy policy = ReconnectPolicy.ofFlags(demandFirst, primaryAscending, secondaryAscending);
+        registry.setReconnectPolicy(key, Optional.of(policy));
+        AddonNetwork.broadcastRegistry(player.server);
+
+        player.displayClientMessage(
+            message("sort.saved").withStyle(ChatFormatting.GRAY),
+            true
+        );
     }
 
     // ------------------------------------------------------------------ 右键切锁定

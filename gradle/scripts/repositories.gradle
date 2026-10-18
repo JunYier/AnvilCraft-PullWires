@@ -19,4 +19,18 @@ repositories {
             includeGroup "dev.dubhe"
         }
     }
+    // 可选集成的编译期依赖。用 content 限定分组，避免影响其它依赖的解析顺序。
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content { includeGroup "maven.modrinth" }
+    }
+    maven {
+        name = "BlameJared"
+        url = "https://maven.blamejared.com"
+        content {
+            includeGroup "mezz.jei"
+            includeGroup "mezz.jei.api"
+        }
+    }
 }

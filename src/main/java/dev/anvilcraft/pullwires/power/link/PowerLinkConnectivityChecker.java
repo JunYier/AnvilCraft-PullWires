@@ -16,7 +16,7 @@ import java.util.List;
  * 把本体的「连接范围即供电范围」拆成两档。
  *
  * <p>本体 {@code IPowerComponent#getShape()} 只有一个范围（{@code range}），它同时决定组网与供电。
- * 本模组让输电杆多出一个更大的<b>自动连接范围</b>：杆与杆之间用<b>直线距离</b>在这个范围内组网，
+ * 本模组让输电杆多出一个更大的<b>自动连接范围</b>：杆与杆之间用<b>包围盒</b>在这个范围内组网，
  * 但发电机／用电器／储电元件仍然只能按原本的 {@code range}（包围盒）并网，
  * 因此扩大范围不会凭空供电。</p>
  *
@@ -27,6 +27,13 @@ import java.util.List;
  * <p><b>范围来源</b>：{@code range}（供电范围）继续取自本体的
  * {@code machines.powerTransmitterRange} / {@code remotePowerTransmitterRange}，
  * 这样现有存档与配置项含义完全不变；本模组只新增「自动连接范围」一个配置。</p>
+ *
+ * <h2>跨维度杆没有任何特殊分支（V1.12.6）</h2>
+ * <p>早期版本给跨维度杆加了「不参与杆间自动连接」的例外（把它的节点置为 {@code null}）。
+ * 但那是<b>半套规则</b>：它对「自己主动并网」生效，对「别人靠过来的连接盒碰到它」却不生效，
+ * 于是它照样会和旁边的杆并到一起，产生了大量难查的行为。
+ * 现在删掉这个例外——<b>跨维度杆就是一个 {@code range = 0} 的普通电线杆</b>：
+ * 它的供电框与连接盒都是 1×1×1，只有真正贴着才会并网，不需要任何按种类写的分支。</p>
  */
 public class PowerLinkConnectivityChecker extends ConnectivityChecker {
     public static final PowerLinkConnectivityChecker INSTANCE = new PowerLinkConnectivityChecker();
@@ -39,15 +46,11 @@ public class PowerLinkConnectivityChecker extends ConnectivityChecker {
         // 发电机／用电器／储电元件：交回本体判定，其 getShape() 就是供电范围。
         if (component.getComponentType() != PowerComponentType.TRANSMITTER) return TriState.DEFAULT;
 
-        // 跨维度输电杆：需求 §5.2 规定它不参与「杆间自动连接」。
-        // 注意它仍<b>可以</b>靠供电框接入电网——否则结算找不到电网，链路永远是 INACTIVE。
-
         List<PowerLinkRule.Box> gridSupply = new ArrayList<>();
         List<PowerLinkRule.LinkNode> gridTransmitters = new ArrayList<>();
         for (IPowerComponent other : powerGrid.getComponents()) {
             gridSupply.add(toBox(other.getShape()));
-            if (other.getComponentType() == PowerComponentType.TRANSMITTER
-                && PoleKind.ofComponent(other) != PoleKind.CROSS_DIMENSIONAL) {
+            if (other.getComponentType() == PowerComponentType.TRANSMITTER) {
                 gridTransmitters.add(linkNode(other));
             }
         }
@@ -55,7 +58,7 @@ public class PowerLinkConnectivityChecker extends ConnectivityChecker {
         boolean canJoin = PowerLinkRule.canTransmitterJoin(
             toBox(component.getShape()),
             gridSupply,
-            PoleKind.ofComponent(component) == PoleKind.CROSS_DIMENSIONAL ? null : linkNode(component),
+            linkNode(component),
             gridTransmitters
         );
         // 返回 FALSE 而不是 DEFAULT：明确接管输电杆的判定，不依赖本体 checker 的内部实现。
@@ -65,7 +68,7 @@ public class PowerLinkConnectivityChecker extends ConnectivityChecker {
     /** 输电杆的连接节点，范围见 {@link PowerLinkRule#linkRange(int, int)}。 */
     public static PowerLinkRule.LinkNode linkNode(IPowerComponent component) {
         // 按「杆的种类」取自动连接范围，而不是全局一套。
-int range = PowerLinkRule.linkRange(
+        int range = PowerLinkRule.linkRange(
             component.getRange(),
             PoleKind.autoConnectRange(PoleKind.ofComponent(component))
         );

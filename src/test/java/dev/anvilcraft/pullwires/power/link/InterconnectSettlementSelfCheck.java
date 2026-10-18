@@ -5,10 +5,16 @@ import java.util.List;
 /**
  * {@link InterconnectSettlement} 的纯逻辑自检。
  *
- * <p>重点盯五件事：<b>单向性</b>（从端富余不回流）、优先级降序、同优先级按建立时间升序、
- * 局部守恒、不重复分配。</p>
+ * <p>核心要钉死两件事：</p>
+ * <ol>
+ *   <li><b>多跳中继</b>：中转站自己没有用电器（自有余额 0）时，上游给它的电必须能继续转给下游；</li>
+ *   <li><b>需求基准必须是自有余额</b>：否则上一拍给出的电会抵消这一拍的需求，成交退化成隔一拍一次。</li>
+ * </ol>
  */
 public final class InterconnectSettlementSelfCheck {
+    private static int assertions;
+    private static int failures;
+
     private InterconnectSettlementSelfCheck() {
     }
 
@@ -16,159 +22,102 @@ public final class InterconnectSettlementSelfCheck {
         System.exit(run() == 0 ? 0 : 1);
     }
 
-    private static InterconnectSettlement.Link link(int index, int master, int slave, int priority, long createdAt) {
-        return new InterconnectSettlement.Link(index, master, slave, priority, createdAt);
-    }
-
     /** @return 失败的断言数，0 表示全部通过 */
     public static int run() {
-        int assertions = 0;
-        int failures = 0;
+        assertions = 0;
+        failures = 0;
 
-        // --- 单链路基本传输 -------------------------------------------------
-        int[] balances = {100, -30};
-        List<InterconnectSettlement.Link> links = List.of(link(0, 0, 1, 7, 1));
-        List<InterconnectSettlement.Transfer> transfers = InterconnectSettlement.settle(balances, links);
-        assertions++;
-        if (transfers.size() != 1 || transfers.getFirst().amount() != 30) {
-            failures++;
-            System.out.println("[pullwires] FAIL 单链路应传输缺口的全部 30");
-        }
-        assertions++;
-        if (transfers.getFirst().fromNode() != 0 || transfers.getFirst().toNode() != 1) {
-            failures++;
-            System.out.println("[pullwires] FAIL 传输方向应为主端 → 从端");
-        }
-
-        // --- 结算不得修改调用方数组 ------------------------------------------
-        assertions++;
-        if (balances[0] != 100 || balances[1] != -30) {
-            failures++;
-            System.out.println("[pullwires] FAIL 结算不应修改传入的 balances");
-        }
-
-        // --- ★ 单向性：从端富余不得回流 ---------------------------------------
-        // 同一条 master=0 → slave=1 的链路，把余量反过来：主端缺电、从端富余。
-        assertions++;
-        if (!InterconnectSettlement.settle(new int[] {-30, 100}, links).isEmpty()) {
-            failures++;
-            System.out.println("[pullwires] FAIL 从端的富余不得回流到主端（这是单向模型的核心）");
-        }
-
-        // --- ★ 互为主从：反向链路并存且互不干扰 --------------------------------
-        List<InterconnectSettlement.Link> bothWays = List.of(
-            link(0, 0, 1, 7, 1),
-            link(1, 1, 0, 7, 2)
+        // --- 单跳：主端富余、从端缺口 ----------------------------------------
+        List<InterconnectSettlement.Transfer> one = InterconnectSettlement.settle(
+            new int[] {100, -30}, List.of(link(0, 0, 1, 7, 1))
         );
-        List<InterconnectSettlement.Transfer> bothWaysTransfers =
-            InterconnectSettlement.settle(new int[] {100, -30}, bothWays);
-        assertions++;
-        if (bothWaysTransfers.size() != 1 || bothWaysTransfers.getFirst().fromNode() != 0) {
-            failures++;
-            System.out.println("[pullwires] FAIL 反向并存时只应有 0→1 成交");
-        }
+        expect("单跳应成交", one.size() == 1);
+        expect("单跳量取从端缺口", one.getFirst().amount() == 30);
+        expect("方向必须是主端→从端", one.getFirst().fromNode() == 0 && one.getFirst().toNode() == 1);
 
-        // --- 两端都富余 / 都缺电：不传输 ------------------------------------
-        assertions++;
-        if (!InterconnectSettlement.settle(new int[] {50, 50}, List.of(link(0, 0, 1, 7, 1))).isEmpty()) {
-            failures++;
-            System.out.println("[pullwires] FAIL 两端都富余不应传输");
-        }
-        assertions++;
-        if (!InterconnectSettlement.settle(new int[] {-50, -50}, List.of(link(0, 0, 1, 7, 1))).isEmpty()) {
-            failures++;
-            System.out.println("[pullwires] FAIL 两端都缺电不应传输（彼此救不了）");
-        }
-
-        // --- 优先级降序：高优先级先被满足 ------------------------------------
-        int[] contested = {100, -80, -80};
-        List<InterconnectSettlement.Link> contestedLinks = List.of(
-            link(0, 0, 1, 3, 1),
-            link(1, 0, 2, 12, 2)
+        // --- 主端富余不足：只给得起多少给多少 --------------------------------
+        List<InterconnectSettlement.Transfer> limited = InterconnectSettlement.settle(
+            new int[] {10, -50}, List.of(link(0, 0, 1, 7, 1))
         );
-        List<InterconnectSettlement.Transfer> contestedTransfers =
-            InterconnectSettlement.settle(contested, contestedLinks);
-        int toLow = amountTo(contestedTransfers, 1);
-        int toHigh = amountTo(contestedTransfers, 2);
-        assertions++;
-        if (toHigh != 80 || toLow != 20) {
-            failures++;
-            System.out.println("[pullwires] FAIL 高优先级应先被满足：期望 高=80/低=20，实际 高="
-                               + toHigh + "/低=" + toLow);
-        }
+        expect("主端富余不足时按上限给", limited.size() == 1 && limited.getFirst().amount() == 10);
 
-        // --- ★ 相同优先级按建立时间升序 ----------------------------------------
-        int[] tied = {100, -80, -80};
-        List<InterconnectSettlement.Link> tiedLinks = List.of(
-            link(0, 0, 1, 7, 5),
-            link(1, 0, 2, 7, 2)
+        // --- ★ 多跳中继：中转站自己没有任何用电器 ----------------------------
+        // 0（富余 100）→ 1（自有 0，纯中继）→ 2（缺口 50）
+        // 早期「一趟遍历按缺口取量」的实现在这里必然失败：1 没有缺口，0→1 会被直接跳过。
+        List<InterconnectSettlement.Transfer> relay = InterconnectSettlement.settle(
+            new int[] {100, 0, -50},
+            List.of(link(0, 0, 1, 7, 1), link(1, 1, 2, 7, 2))
         );
-        List<InterconnectSettlement.Transfer> tiedTransfers = InterconnectSettlement.settle(tied, tiedLinks);
-        assertions++;
-        if (amountTo(tiedTransfers, 2) != 80 || amountTo(tiedTransfers, 1) != 20) {
-            failures++;
-            System.out.println("[pullwires] FAIL 同优先级应先满足更早建立的链路（createdAt=2 的那条）");
-        }
+        expect("多跳中继两段都要成交", relay.size() == 2);
+        expect("第一段把电送到中转站", amountOf(relay, 0) == 50);
+        expect("第二段从中转站转到下游", amountOf(relay, 1) == 50);
 
-        // --- 一份富余不得被重复分配 ------------------------------------------
-        assertions++;
-        if (toLow + toHigh > 100) {
-            failures++;
-            System.out.println("[pullwires] FAIL 总输出不得超过主端的富余 100");
-        }
-
-        // --- 局部守恒 ---------------------------------------------------------
-        assertions++;
-        if (!conserved(contestedTransfers)) {
-            failures++;
-            System.out.println("[pullwires] FAIL 每条链路应当局部守恒");
-        }
-
-        // --- 多主端补同一从端 --------------------------------------------------
-        int[] fanIn = {100, 100, -90};
-        List<InterconnectSettlement.Link> fanInLinks = List.of(
-            link(0, 0, 2, 1, 1),
-            link(1, 1, 2, 15, 2)
+        // --- 主端富余不足时，下游只能拿到转手得到的那部分 ---------------------
+        List<InterconnectSettlement.Transfer> relayLimited = InterconnectSettlement.settle(
+            new int[] {20, 0, -50},
+            List.of(link(0, 0, 1, 7, 1), link(1, 1, 2, 7, 2))
         );
-        List<InterconnectSettlement.Transfer> fanInTransfers = InterconnectSettlement.settle(fanIn, fanInLinks);
-        assertions++;
-        if (amountTo(fanInTransfers, 2) != 90) {
-            failures++;
-            System.out.println("[pullwires] FAIL 从端应被补满缺口 90，实际 " + amountTo(fanInTransfers, 2));
-        }
-        assertions++;
-        if (!conserved(fanInTransfers)) {
-            failures++;
-            System.out.println("[pullwires] FAIL 多链路场景应当局部守恒");
-        }
+        expect("中继链受最上游产能限制", amountOf(relayLimited, 0) == 20 && amountOf(relayLimited, 1) == 20);
+        // 中继不放大：下游拿到的恰好等于上游交给它的。注意不能把各段求和当作「总送出」——
+        // 同一份电经过两段会被计两次，那是计数口径问题，不是能量问题。
+        expect("中继不放大", amountOf(relayLimited, 1) == amountOf(relayLimited, 0));
 
-        // --- 不支持链式传递 ---------------------------------------------------
-        int[] chain = {100, -50, -50};
-        List<InterconnectSettlement.Link> chainLinks = List.of(
-            link(0, 0, 1, 7, 1),
-            link(1, 1, 2, 7, 2)
+        // --- ★ 从端按 (优先级数值升序, 建链时间升序) 逐位申请 ----------------
+        // 从端 2 缺口 150，两位主端各有 100。优先级 3 的那位必须被先申请。
+        List<InterconnectSettlement.Transfer> pick = InterconnectSettlement.settle(
+            new int[] {100, 100, -150},
+            List.of(link(0, 0, 2, 9, 1), link(1, 1, 2, 3, 2))
         );
-        List<InterconnectSettlement.Transfer> chainTransfers = InterconnectSettlement.settle(chain, chainLinks);
-        assertions++;
-        if (amountTo(chainTransfers, 2) != 0) {
-            failures++;
-            System.out.println("[pullwires] FAIL 中间网络被补平后不应再向下一跳传递");
-        }
+        expect("先向优先级数值最小的主端申请", amountOf(pick, 1) == 100);
+        expect("不够时再向次位申请", amountOf(pick, 0) == 50);
 
-        // --- 确定性 -----------------------------------------------------------
-        assertions++;
-        if (!InterconnectSettlement.settle(contested, contestedLinks)
-            .equals(InterconnectSettlement.settle(contested, contestedLinks))) {
-            failures++;
-            System.out.println("[pullwires] FAIL 同样输入应得到同样输出");
-        }
+        // 优先级相同时按建链时间：先建的先被申请
+        List<InterconnectSettlement.Transfer> pickByAge = InterconnectSettlement.settle(
+            new int[] {100, 100, -150},
+            List.of(link(0, 0, 2, 7, 50), link(1, 1, 2, 7, 10))
+        );
+        expect("优先级相同时先建的先被申请", amountOf(pickByAge, 1) == 100 && amountOf(pickByAge, 0) == 50);
 
-        // --- 自环链路必须被忽略 -----------------------------------------------
-        assertions++;
-        if (!InterconnectSettlement.settle(new int[] {-50}, List.of(link(0, 0, 0, 7, 1))).isEmpty()) {
-            failures++;
-            System.out.println("[pullwires] FAIL 自环链路应被忽略");
+        // --- 不传输的情形 ----------------------------------------------------
+        expect("两端都不缺电不应传输", InterconnectSettlement.settle(
+            new int[] {50, 0}, List.of(link(0, 0, 1, 7, 1))
+        ).isEmpty());
+        expect("两端都缺电不应传输", InterconnectSettlement.settle(
+            new int[] {-50, -50}, List.of(link(0, 0, 1, 7, 1))
+        ).isEmpty());
+        expect("从端富余不得回流主端", InterconnectSettlement.settle(
+            new int[] {-30, 100}, List.of(link(0, 0, 1, 7, 1))
+        ).isEmpty());
+        expect("同网自连应跳过", InterconnectSettlement.settle(
+            new int[] {100, -30}, List.of(link(0, 0, 0, 7, 1))
+        ).isEmpty());
+
+        // --- 结算不得修改传入的 balances ------------------------------------
+        int[] source = {100, -30};
+        InterconnectSettlement.settle(source, List.of(link(0, 0, 1, 7, 1)));
+        expect("结算不得修改传入数组", source[0] == 100 && source[1] == -30);
+
+        // --- ★ 振荡回归：需求基准必须是自有余额 ------------------------------
+        // 取量公式要求「从端有缺口」。若把上一拍注入的增量算进从端余额，
+        // 上一拍给出的电就把这一拍的需求抵消掉，成交退化成隔一拍一次。
+        int injected = 0;
+        int bookedTicks = 0;
+        for (int tick = 0; tick < 6; tick++) {
+            List<InterconnectSettlement.Transfer> result = InterconnectSettlement.settle(
+                new int[] {100, -20 + injected}, List.of(link(0, 0, 1, 7, 1))
+            );
+            injected = result.isEmpty() ? 0 : result.getFirst().amount();
+            if (!result.isEmpty()) bookedTicks++;
         }
+        expect("账面基准恰好隔一拍成交一次（6 拍 3 次）", bookedTicks == 3);
+
+        int ownTicks = 0;
+        for (int tick = 0; tick < 6; tick++) {
+            if (!InterconnectSettlement.settle(
+                new int[] {100, -20}, List.of(link(0, 0, 1, 7, 1))
+            ).isEmpty()) ownTicks++;
+        }
+        expect("自有基准每拍都成交（6 拍 6 次）", ownTicks == 6);
 
         if (failures == 0) {
             System.out.println("[pullwires] InterconnectSettlement ok (" + assertions + " assertions)");
@@ -178,19 +127,23 @@ public final class InterconnectSettlementSelfCheck {
         return failures;
     }
 
-    private static int amountTo(List<InterconnectSettlement.Transfer> transfers, int node) {
-        int total = 0;
-        for (InterconnectSettlement.Transfer transfer : transfers) {
-            if (transfer.toNode() == node) total += transfer.amount();
-        }
-        return total;
+    private static InterconnectSettlement.Link link(int index, int master, int slave, int priority, long createdAt) {
+        return new InterconnectSettlement.Link(index, master, slave, priority, createdAt);
     }
 
-    private static boolean conserved(List<InterconnectSettlement.Transfer> transfers) {
+    /** 按调用方给的稳定下标取这一条的成交量。 */
+    private static int amountOf(List<InterconnectSettlement.Transfer> transfers, int linkIndex) {
         for (InterconnectSettlement.Transfer transfer : transfers) {
-            if (transfer.amount() <= 0) return false;
-            if (transfer.fromNode() == transfer.toNode()) return false;
+            if (transfer.linkIndex() == linkIndex) return transfer.amount();
         }
-        return true;
+        return 0;
+    }
+
+
+    private static void expect(String name, boolean condition) {
+        assertions++;
+        if (condition) return;
+        failures++;
+        System.out.println("[pullwires] FAIL " + name);
     }
 }

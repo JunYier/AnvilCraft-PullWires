@@ -120,15 +120,24 @@ public class CrossDimensionalPoleBlockEntity extends AbstractTransmissionPoleBlo
         LevelLoadManager.register(pos, LoadChuckData.createLoadChuckData(0, pos, false, serverLevel), serverLevel);
     }
 
-    @Override
-    public void setRemoved() {
-        // 只在「这根杆真的没了」时解除强加载。
-        // 区块卸载 / 服务器停止时方块还在，此时**不能**解除——否则强制加载标志被一并清掉，
-        // 重启后这个区块再也不会自己加载，跨维度链路就永远回不到 ACTIVE。
-        if (this.level instanceof ServerLevel serverLevel
-            && !serverLevel.getBlockState(this.worldPosition).is(AddonBlocks.CROSS_DIMENSIONAL_POLE.get())) {
+    /**
+     * 解除强加载。
+     *
+     * <p><b>刻意不放在 {@code setRemoved()} 里。</b>那个回调在<b>区块卸载与服务器关停</b>时也会跑，
+     * 而关停路径上做两件事都是致命的：</p>
+     * <ul>
+     *   <li>读 {@code level.getBlockState(...)}：会去访问一个正在卸载的区块，可能把存档流程卡住；</li>
+     *   <li>{@code setChunkForced(false)}：在「Saving worlds」阶段改强制加载集合，
+     *       实测表现为<b>日志停在 “Saving worlds” 之后再无输出，世界存不下去</b>。</li>
+     * </ul>
+     * <p>所以改成由拆杆事件（{@code ManualLinkEvents#onBreak}）直接调用本方法：
+     * 那是服务端线程上的明确「方块没了」事件，不存在卸载时序问题。
+     * 代价是 {@code /setblock}、爆炸等绕过该事件的方式不会解除强加载——
+     * 与本体「监督者」的行为一致。</p>
+     */
+    public void releaseChunkLoad() {
+        if (this.level instanceof ServerLevel serverLevel) {
             LevelLoadManager.unregister(this.worldPosition, serverLevel);
         }
-        super.setRemoved();
     }
 }

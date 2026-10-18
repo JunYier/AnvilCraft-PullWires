@@ -111,6 +111,36 @@ public enum PoleKind {
         return autoConnectRange(kindOfItem(stack));
     }
 
+    /**
+     * 该种类的杆<b>占几格高</b>。
+     *
+     * <p>本体那根输电杆是三段结构（{@code Vertical3PartHalf}），远程输电杆是四段
+     * （{@code Vertical4PartHalf}），本模组两种都继承远程杆，因此也是四段。</p>
+     *
+     * <p><b>这是「杆顶在哪」的唯一权威答案</b>：{@code PoleKey} 里存的是<b>顶段</b>方块，
+     * 所以从底段推算杆顶、或者画粒子束要落到杆顶时，都必须问这里，而不是各自写死一个偏移。
+     * 之前放置预览的头部就是写死的 3.0（注释写着「实测对齐」），四格杆因此偏高/偏矮。</p>
+     */
+    public int height() {
+        return this == TRANSMISSION ? 3 : 4;
+    }
+
+    /**
+     * 该方块所在那根杆的高度；不是杆则返回 0。
+     *
+     * <p>用于「手上拿的是磁盘、要按<b>视角指着的那根杆</b>算高度」这种情形。</p>
+     */
+    public static int heightOf(BlockState state) {
+        PoleKind kind = of(state);
+        return kind == null ? 0 : kind.height();
+    }
+
+    /** 手持物对应的杆高；不是本模组认得的杆（例如磁盘）返回 0，由调用方另找依据。 */
+    public static int heightOfItem(ItemStack stack) {
+        PoleKind kind = kindOfItem(stack);
+        return kind == null ? 0 : kind.height();
+    }
+
 
     /** 从元件推种类（只有方块实体才带方块状态）。 */
     public static @Nullable PoleKind ofComponent(Object component) {
@@ -143,12 +173,12 @@ public enum PoleKind {
         return false;
     }
 
-    /** 该种类是否参与自动组网（跨维度杆不参与）。 */
-    public boolean joinsGrid() {
-        return this != CROSS_DIMENSIONAL;
-    }
-
-    /** 该种类的供电范围是否也由本模组配置（本体那两种杆取自本体配置）。 */
+    /**
+     * 该种类是否由本模组自己配置供电范围（本体那两种杆取自本体配置）。
+     *
+     * <p>注意：<b>不要</b>再用它去分流玩法行为或提示内容——
+     * 「四种杆一视同仁」已经是本模组的既定策略（见 §5.3），这里剩下的用途只有查配置来源。</p>
+     */
     public boolean isAddonOwned() {
         return this == ULTRA_LONG_RANGE || this == CROSS_DIMENSIONAL;
     }

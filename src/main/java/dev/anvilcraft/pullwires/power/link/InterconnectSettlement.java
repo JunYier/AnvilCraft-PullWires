@@ -10,28 +10,32 @@ import java.util.List;
  * <p>纯整数运算，不依赖任何游戏类型，可脱离游戏单独验证。</p>
  *
  * <h2>单向模型（V1.4.1 起）</h2>
- * <p>每条链路是有向边 {@code master → slave}：<b>只有主端能送电给从端</b>。
- * 从端的富余不会回流，因此不再存在「谁富余谁送出」的对称性。</p>
+ * <p>每条链路是有向边 {@code master → slave}：<b>只有主端能送电给从端</b>，从端的富余不会回流。
+ * 因此每条链路只有一个决策者——主端；而 {@code A → B} 与 {@code B → A} 是两条独立的边，互不干扰。</p>
  *
- * <p>这带来两个直接后果：</p>
- * <ul>
- *   <li><b>不再有排序方向的矛盾</b>：旧实现里「给电升序 vs 取电降序」互相打架
- *       （给电端只有一个排序维度、取电端却有多个），选了取电降序就必然饿死低优先级的取电端。
- *       单向化后每条链路只有一个决策者——主端，排序键退化为
- *       {@code (优先级降序, 建立时间升序)}。</li>
- *   <li><b>允许互为主从</b>：{@code A → B} 与 {@code B → A} 是两条独立的边，互不干扰。
- *       由于「富余」与「亏电」不可能同时成立，同一拍里两者不会互相抵消或震荡。</li>
- * </ul>
+ * <h2>两阶段结算（V1.12.9 起）</h2>
+ * <p>早期版本是「一趟遍历、按缺口取量」，这在原理上<b>做不到多跳</b>：
+ * 中转站只要自己没有用电器（自有余额为 0），就没有缺口，于是上游链路被
+ * {@code remaining[slave] >= 0} 直接跳过，中转站永远拿不到可以转手的电。</p>
+ * <p>现在分两阶段：</p>
+ * <ol>
+ *   <li><b>需求透传</b>：沿链路图把下游的缺口逐级汇总上来，
+ *       {@code need[i] = max(0, -own[i]) + Σ(上游要转给下游的量)}。
+ *       迭代到不动点（链路成环时限次兜底），于是「C 缺 50」这件事能被最上游的 A 看见。</li>
+ *   <li><b>分配</b>：按额度给每条链路定额，{@code amount = min(主端当前可支配, 从端还差多少)}。
+ *       同样迭代到不动点，因此「先给中转站、中转站再往下给」这种顺序问题会自行收敛，
+ *       不依赖链路的处理顺序。</li>
+ * </ol>
+ * <p><b>需求侧永远只读 {@code own}（自有余额，不含我们注入的转移量）</b>，
+ * 这是防「隔一拍闪一次」的关键：若把上一拍注入的增量也算进需求，
+ * 上一拍给出的电就会把这一拍的需求抵消掉，成交退化成隔一拍一次。
+ * 见 {@code InterconnectSettlementSelfCheck} 里的振荡回归。</p>
  *
- * <h2>排序键</h2>
- * <ul>
- *   <li><b>优先级降序</b>：主端优先级高的链路先获得输送额度。</li>
- *   <li><b>建立时间升序</b>：优先级相同时，先建立的链路先被满足。</li>
- *   <li><b>下标升序</b>：前两者都相同时的最终决胜，保证同样输入永远得到同样输出。</li>
- * </ul>
- *
- * <p>结算结果保证：① 每条链路局部守恒（主端扣多少，从端就加多少）；
- * ② 主端的总输出不超过自身富余，从端的总输入不超过自身缺口；③ 同一份富余不会被重复分配。</p>
+ * <h2>从端选主端的顺序（V1.12.9）</h2>
+ * <p>一根杆可以同时是多个主端的从端。此时它按
+ * <b>(主端优先级数值升序, 建链时间升序)</b> 逐位申请：先找最慷慨（优先级数值最小）的那位，
+ * 它给不够再找次位。这正是「优先级对从端选主端也有作用」的落点——
+ * 早期版本只让主端按优先级争夺额度，从端这边完全没有选择权。</p>
  */
 public final class InterconnectSettlement {
     private InterconnectSettlement() {
@@ -43,7 +47,7 @@ public final class InterconnectSettlement {
      * @param index      调用方给出的稳定下标，用于把结果映射回具体链路
      * @param nodeMaster 主端所在网络的编号（对应 {@code balances} 的下标）
      * @param nodeSlave  从端所在网络的编号
-     * @param priority   主端杆的结算优先级，越大越优先
+     * @param priority   主端杆的结算优先级，<b>数值越小越慷慨</b>，从端会先向它申请
      * @param createdAt  链路建立序号，越小越早
      */
     public record Link(int index, int nodeMaster, int nodeSlave, int priority, long createdAt) {
@@ -57,38 +61,124 @@ public final class InterconnectSettlement {
     public record Transfer(int linkIndex, int fromNode, int toNode, int amount) {
     }
 
+    /** 需求透传的迭代上限：链路数 + 1 已经足够覆盖任何 DAG；成环时靠它兜底，不会死循环。 */
+    private static final int MAX_PASSES_SLACK = 1;
+
+    /** 需求值的上限，防止成环时数值无界增长。 */
+    private static final long NEED_CAP = Integer.MAX_VALUE / 4L;
+
     /**
      * 执行一次结算。
      *
-     * @param balances 各网络的余量，正数表示富余、负数表示缺口；<b>不会被修改</b>
+     * @param balances 各网络的<b>自有</b>余量，正数表示富余、负数表示缺口；<b>不会被修改</b>
      * @param links    参与结算的有向链路
      * @return 本拍成交的传输，未被满足的缺口不会出现在结果里
      */
     public static List<Transfer> settle(int[] balances, List<Link> links) {
-        int[] remaining = balances.clone();
+        int[] own = balances.clone();
+        int[] need = propagateDemand(own, links);
+        return allocate(own, need, links);
+    }
 
-        List<Integer> order = new ArrayList<>(links.size());
-        for (int i = 0; i < links.size(); i++) order.add(i);
+    /**
+     * 阶段一：把下游的缺口逐级汇总上来。
+     *
+     * <p>{@code need[i]} = 「本网络这一拍总共需要收到多少」= 自己的缺口 + 要替下游转发的量。
+     * 用单调增长的不动点迭代，链路数 + 1 趟足够收敛；成环时限次退出并夹住上限。</p>
+     */
+    private static int[] propagateDemand(int[] own, List<Link> links) {
+        int nodeCount = own.length;
+        int[] need = new int[nodeCount];
+        for (int i = 0; i < nodeCount; i++) {
+            need[i] = (int) Math.min(NEED_CAP, Math.max(0, -(long) own[i]));
+        }
+        if (links.isEmpty()) return need;
+
+        int maxPasses = links.size() + MAX_PASSES_SLACK;
+        for (int pass = 0; pass < maxPasses; pass++) {
+            // 汇总「每个节点要替下游转发的量」：它的每条出边下游各需要多少。
+            long[] downstream = new long[nodeCount];
+            for (Link link : links) {
+                int master = link.nodeMaster();
+                int slave = link.nodeSlave();
+                if (master == slave) continue;
+                downstream[master] += need[slave];
+            }
+            boolean changed = false;
+            for (int i = 0; i < nodeCount; i++) {
+                long candidate = Math.max(0, -(long) own[i]) + downstream[i];
+                candidate = Math.min(NEED_CAP, candidate);
+                if (candidate > need[i]) {
+                    need[i] = (int) candidate;
+                    changed = true;
+                }
+            }
+            if (!changed) break;
+        }
+        return need;
+    }
+
+    /**
+     * 阶段二：按额度分配。
+     *
+     * <p>处理顺序是<b>「先按从端分组、组内按 (主端优先级升序, 建链时间升序)」</b>，
+     * 也就是从端逐位向慷慨的主端申请。分配本身迭代到不动点，因此中转站先从上游收到电、
+     * 再往下游转发这件事会自行完成，与链路的排列无关。</p>
+     */
+    private static List<Transfer> allocate(int[] own, int[] need, List<Link> links) {
+        int linkCount = links.size();
+        if (linkCount == 0) return List.of();
+
+        List<Integer> order = new ArrayList<>(linkCount);
+        for (int i = 0; i < linkCount; i++) order.add(i);
         order.sort(Comparator
-            .comparingInt((Integer index) -> -links.get(index).priority())
-            .thenComparingLong(index -> links.get(index).createdAt())
+            // 先按从端分组：同一根从端的多条入边挨着处理，才能真正做到「逐位申请」
+            .comparingInt((Integer i) -> links.get(i).nodeSlave())
+            // 组内：优先级数值越小越先被申请
+            .thenComparingInt(i -> links.get(i).priority())
+            // 再按建链时间，优先级相同时先建先申请
+            .thenComparingLong(i -> links.get(i).createdAt())
             .thenComparingInt(Integer::intValue));
 
-        List<Transfer> transfers = new ArrayList<>();
-        for (int linkIndex : order) {
-            Link link = links.get(linkIndex);
-            int master = link.nodeMaster();
-            int slave = link.nodeSlave();
-            // 两端本来就在同一座电网里就没有输送的意义。
-            if (master == slave) continue;
-            // 单向：主端必须有富余，从端必须有缺口，缺一不可。
-            if (remaining[master] <= 0 || remaining[slave] >= 0) continue;
+        int nodeCount = own.length;
+        int[] avail = new int[nodeCount];
+        for (int i = 0; i < nodeCount; i++) {
+            avail[i] = (int) Math.min(Integer.MAX_VALUE, Math.max(0, own[i]));
+        }
+        int[] received = new int[nodeCount];
+        int[] grant = new int[linkCount];
 
-            int amount = Math.min(remaining[master], -remaining[slave]);
-            if (amount <= 0) continue;
-            remaining[master] -= amount;
-            remaining[slave] += amount;
-            transfers.add(new Transfer(linkIndex, master, slave, amount));
+        int maxPasses = linkCount + MAX_PASSES_SLACK;
+        for (int pass = 0; pass < maxPasses; pass++) {
+            boolean changed = false;
+            for (int i : order) {
+                Link link = links.get(i);
+                int master = link.nodeMaster();
+                int slave = link.nodeSlave();
+                // 两端本来就在同一座电网里就没有输送的意义。
+                if (master == slave) continue;
+
+                int want = Math.max(0, need[slave] - received[slave]);
+                if (want <= 0) continue;
+                int give = Math.min(avail[master], want);
+                if (give <= grant[i]) continue;
+
+                int delta = give - grant[i];
+                grant[i] = give;
+                avail[master] -= delta;
+                avail[slave] += delta;
+                received[slave] += delta;
+                changed = true;
+            }
+            if (!changed) break;
+        }
+
+        List<Transfer> transfers = new ArrayList<>();
+        for (int i = 0; i < linkCount; i++) {
+            if (grant[i] <= 0) continue;
+            Link link = links.get(i);
+            if (link.nodeMaster() == link.nodeSlave()) continue;
+            transfers.add(new Transfer(i, link.nodeMaster(), link.nodeSlave(), grant[i]));
         }
         return transfers;
     }

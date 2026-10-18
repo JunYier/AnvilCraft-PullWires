@@ -4,6 +4,9 @@ neoForge = "21.1.241"
 anvillib = "2.0.0+snapshot.+"
 anvilcraft = "1.6.0+snapshot.+"
 ageratum = "0.0.1+build.+"
+# 可选集成：编译期用 API 产物，运行期由玩家自行决定装不装
+jade = "15.10.5+neoforge"
+jei = "19.50.0.414"
 modDevGradle = "2.0.142"
 lombok = "8.7.1"
 
@@ -13,6 +16,8 @@ anvillibRecipe = { group = "dev.anvilcraft.lib", name = "anvillib-recipe-neoforg
 anvillibMoveableEntityBlock = { group = "dev.anvilcraft.lib", name = "anvillib-moveable-entity-block-neoforge-1.21.1", version.ref = "anvillib" }
 anvilcraft = { group = "dev.dubhe", name = "anvilcraft-neoforge-1.21.1", version.ref = "anvilcraft" }
 ageratum = { group = "dev.anvilcraft.resource", name = "ageratum-neoforge-1.21.1", version.ref = "ageratum" }
+jade = { group = "maven.modrinth", name = "jade", version.ref = "jade" }
+jei = { group = "mezz.jei", name = "jei-1.21.1-neoforge-api", version.ref = "jei" }
 
 [plugins]
 modDevGradle = { id = "net.neoforged.moddev", version.ref = "modDevGradle" }

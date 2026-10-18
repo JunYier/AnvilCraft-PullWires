@@ -1,4 +1,4 @@
-name: CI for Mod
+name: CI for AnvilCraft_Fullwires
 on:
   workflow_dispatch:
   push:

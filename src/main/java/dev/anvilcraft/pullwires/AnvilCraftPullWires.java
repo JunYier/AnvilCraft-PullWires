@@ -7,8 +7,8 @@ import dev.anvilcraft.lib.v2.registrum.Registrum;
 import dev.anvilcraft.pullwires.command.AddonCommands;
 import dev.anvilcraft.pullwires.data.AddonDatagen;
 import dev.anvilcraft.pullwires.init.AddonBlockEntities;
-import dev.anvilcraft.pullwires.init.AddonBlocks;
 import dev.anvilcraft.pullwires.init.AddonItemGroups;
+import dev.anvilcraft.pullwires.init.AddonBlocks;
 import dev.anvilcraft.pullwires.network.AddonNetwork;
 import dev.anvilcraft.pullwires.power.link.PoleHammerBehavior;
 import dev.anvilcraft.pullwires.power.link.PowerLinkConnectivityChecker;
@@ -40,7 +40,6 @@ public class AnvilCraftPullWires {
         HammerManager.registerChange(() -> ModBlocks.REMOTE_TRANSMISSION_POLE.get(), PoleHammerBehavior.INSTANCE);
         HammerManager.registerChange(() -> AddonBlocks.ULTRA_LONG_RANGE_POLE.get(), PoleHammerBehavior.INSTANCE);
         HammerManager.registerChange(() -> AddonBlocks.CROSS_DIMENSIONAL_POLE.get(), PoleHammerBehavior.INSTANCE);
-
         AddonItemGroups.register(modEventBus);
         AddonBlocks.register();
         AddonBlockEntities.register();

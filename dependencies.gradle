@@ -5,4 +5,14 @@ dependencies {
     api(libs.ageratum)
     implementation(libs.anvilcraft) { transitive = false }
     interfaceInjectionData(libs.anvilcraft) { transitive = false }
+
+    // 可选集成：只在编译期需要它们的 API。
+    // 运行期缺失时对应的插件类不会被加载（见 neoforge.mods.toml 里的 optional 声明），
+    // 因此这里用 compileOnly 而不是 implementation——后者会把它们当成硬依赖。
+    compileOnly(libs.jade)
+    compileOnly(libs.jei)
+
+    // Jade 是一个自包含的客户端模组 jar，放进开发运行期才能在 runClient 里看到浮层效果。
+    // JEI 的运行期产物依赖较重，这里不引入：要测它的信息页，把 jei-1.21.1-neoforge 装上即可。
+    runtimeOnly(libs.jade)
 }

@@ -37,19 +37,20 @@ public final class ClientLinkVisibility {
     /**
      * 该链路是否应该在本地世界里画线。
      *
-     * <p>两类排除：</p>
-     * <ol>
-     *   <li>两端不在同一维度——线的另一端在世界之外，画出来只是一根指向空处的线；</li>
-     *   <li>任一端是跨维度杆——需求 §5.2 规定跨维度杆<b>任何情况下都不绘制线条</b>，
-     *       它用顶端的传送门粒子表达连接态。</li>
-     * </ol>
+     * <p><b>唯一的排除条件是「两端不在同一维度」</b>——那种情况下线的另一端在世界之外，
+     * 画出来只是一根指向空处的线。</p>
+     *
+     * <p>跨维度杆<b>不再被排除</b>（V1.12.11）：它现在只是「数值特殊的普通杆」
+     * （{@code R_supply = 0}、{@code R_auto = 0}、手动连接无距离限制且可跨维度），
+     * 因此它在视距内与同维度其它杆建立的连接，照常走这套线条渲染；
+     * 真正跨维度的那些链路依旧被上面的维度比较挡掉，改由顶端的传送门粒子表达
+     * （见 {@link #emitsPortalParticles}）。</p>
      */
     public static boolean drawsLine(ClientLevel level, LinkDefinition definition) {
         PoleKey master = definition.master();
         PoleKey slave = definition.slave();
         if (!master.dimension().equals(slave.dimension())) return false;
-        if (!inLocalLevel(level, master)) return false;
-        return !isCrossDimensionalPole(level, master.pos()) && !isCrossDimensionalPole(level, slave.pos());
+        return inLocalLevel(level, master);
     }
 
     /**

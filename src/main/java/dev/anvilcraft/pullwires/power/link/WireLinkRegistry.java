@@ -35,7 +35,7 @@ import java.util.UUID;
  * 全网链路注册表。
  *
  * <p>以「维度 + 方块坐标」为键，集中存放本模组的全部持久数据：
- * 每根杆的 {@link PoleConfig}（优先级、锁定）与每条 {@link LinkDefinition}（手动连接、磁盘连接）。
+ * 每根杆的 {@link PoleConfig}（优先级、锁定、重连排序设定）与每条 {@link LinkDefinition}（手动连接、磁盘连接）。
  * 挂在主世界的 {@code DimensionDataStorage} 上，因此天然跨维度。</p>
  *
  * <p><b>为什么不用方块实体存</b>：本体的 {@code TransmissionPoleBlockEntity} 没有可扩展字段，
@@ -98,7 +98,63 @@ public class WireLinkRegistry extends SavedData {
     }
 
     private static PoleConfig defaultConfig() {
-        return new PoleConfig(AnvilCraftPullWires.CONFIG.settlement.poleDefaultPriority, false);
+        return new PoleConfig(
+            AnvilCraftPullWires.CONFIG.settlement.poleDefaultPriority,
+            false,
+            // 空 = 这根杆还没有自己的排序设定，进世界后由 backfillReconnectPolicies() 补上一份存档默认快照。
+            Optional.empty()
+        );
+    }
+
+    /** 存档级默认重连排序（配置项 {@code settlement.reconnectSort}）。 */
+    public ReconnectPolicy defaultPolicy() {
+        return AnvilCraftPullWires.CONFIG.settlement.reconnectSort.policy();
+    }
+
+    /**
+     * 该杆<b>实际生效</b>的重连排序：它自己有一份就用它自己的，还没有就用存档默认。
+     *
+     * <p>主端裁决（{@link PowerInterconnectManager}）与客户端配置页都读这一个方法/它的客户端镜像，
+     * 因此「页面上写的顺序」与「主端真正用的顺序」不可能分叉。
+     * 「还没有自己那一份」是补齐之前的短暂状态——见 {@link #backfillReconnectPolicies()}。</p>
+     */
+    public ReconnectPolicy policyOf(PoleKey key) {
+        return this.config(key).effectiveReconnectPolicy(this.defaultPolicy());
+    }
+
+    /** 写入本杆自己的排序设定；写完之后它就不再是「未配置」，补齐不会再来碰它。 */
+    public void setReconnectPolicy(PoleKey key, Optional<ReconnectPolicy> policy) {
+        PoleConfig previous = this.config(key);
+        PoleConfig updated = previous.withReconnectPolicy(policy);
+        if (updated.equals(previous)) return;
+        this.poleConfigs.put(key, updated);
+        this.setDirty();
+    }
+
+    /**
+     * 进世界／新杆加入链路后的<b>配置补齐</b>：把还没有自己排序设定的杆补上一份存档默认快照并落盘。
+     *
+     * <p><b>只碰未配置的杆</b>：{@link ReconnectPolicy#materialize} 在非空时原样返回，所以玩家自己调过的杆
+     * 一根都不会被覆盖。因此这个方法天然幂等——第一次调用把空值填成「与存档默认相等的一份」，
+     * 之后再调用读到的就是非空，直接跳过，既不重写也不广播。</p>
+     *
+     * <p>写盘走的是 {@link #setReconnectPolicy} → {@link #setDirty()}，与玩家在配置页上改排序走的是同一条
+     * 持久化路径，没有第二套存储。</p>
+     *
+     * @return 是否真的补齐了至少一根杆（调用方据此决定要不要广播，避免每拍刷包）
+     */
+    public boolean backfillReconnectPolicies() {
+        ReconnectPolicy saveWideDefault = this.defaultPolicy();
+        boolean changed = false;
+        for (PoleKey key : this.linkedPoles()) {
+            PoleConfig previous = this.config(key);
+            Optional<ReconnectPolicy> materialized =
+                ReconnectPolicy.materialize(previous.reconnectPolicy(), saveWideDefault);
+            if (materialized.equals(previous.reconnectPolicy())) continue;
+            this.setReconnectPolicy(key, materialized);
+            changed = true;
+        }
+        return changed;
     }
 
     public void setPriority(PoleKey key, int priority) {
@@ -330,5 +386,25 @@ public class WireLinkRegistry extends SavedData {
             entries.add(new PoleEntry(entry.getKey(), entry.getValue()));
         }
         return entries;
+    }
+
+    /**
+     * 本次同步所附的默认值：杆配置缺省项与存档级默认排序。
+     *
+     * <p><b>为什么必须一起发</b>：客户端镜像只存「存档里真正有的那些杆」。一根从未被调整过的杆
+     * 在客户端是<b>没有条目</b>的，那时它该显示什么，只有服务端知道（默认优先级来自
+     * {@code settlement.poleDefaultPriority}、默认排序来自 {@code settlement.reconnectSort}）。
+     * 不发这一份，客户端只能各写一份硬编码的缺省值——那正是「客户端另存一份」的开端。</p>
+     */
+    public Defaults defaults() {
+        return new Defaults(defaultConfig(), this.defaultPolicy());
+    }
+
+    /** 同步给客户端的默认值。 */
+    public record Defaults(PoleConfig poleConfig, ReconnectPolicy reconnectPolicy) {
+        public static final Codec<Defaults> CODEC = RecordCodecBuilder.create(instance -> instance.group(
+            PoleConfig.CODEC.fieldOf("pole").forGetter(Defaults::poleConfig),
+            PoleConfig.RECONNECT_POLICY_CODEC.fieldOf("reconnect_policy").forGetter(Defaults::reconnectPolicy)
+        ).apply(instance, Defaults::new));
     }
 }

@@ -21,6 +21,12 @@ public final class AddonNetwork {
             AdjustPriorityPacket.STREAM_CODEC,
             AdjustPriorityPacket::handle
         );
+        // 与 AdjustPriorityPacket 同一个入口类（PoleHammerBehavior）：都是「铁砧锤指向的那根杆」的配置写入。
+        registrar.playToServer(
+            SetReconnectSortPacket.TYPE,
+            SetReconnectSortPacket.STREAM_CODEC,
+            SetReconnectSortPacket::handle
+        );
         registrar.playToClient(
             SyncLinkStatsPacket.TYPE,
             SyncLinkStatsPacket.STREAM_CODEC,
@@ -37,7 +43,9 @@ public final class AddonNetwork {
     public static void broadcastRegistry(MinecraftServer server) {
         if (server == null) return;
         WireLinkRegistry registry = WireLinkRegistry.get(server);
-        PacketDistributor.sendToAllPlayers(SyncRegistryPacket.of(registry.links(), registry.poleEntries()));
+        PacketDistributor.sendToAllPlayers(SyncRegistryPacket.of(
+            registry.links(), registry.poleEntries(), registry.defaults()
+        ));
     }
 
     /** 每拍推送一次转移量统计。与注册表分开，避免每秒重发整份链路列表。 */
@@ -53,6 +61,8 @@ public final class AddonNetwork {
     /** 玩家刚进服务器时单独推一份。 */
     public static void sendRegistry(ServerPlayer player) {
         WireLinkRegistry registry = WireLinkRegistry.get(player.server);
-        PacketDistributor.sendToPlayer(player, SyncRegistryPacket.of(registry.links(), registry.poleEntries()));
+        PacketDistributor.sendToPlayer(player, SyncRegistryPacket.of(
+            registry.links(), registry.poleEntries(), registry.defaults()
+        ));
     }
 }
