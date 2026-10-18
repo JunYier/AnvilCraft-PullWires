@@ -7,6 +7,7 @@ import dev.anvilcraft.pullwires.power.link.ManualLinkRuleSelfCheck;
 import dev.anvilcraft.pullwires.power.link.PoleRangeRuleSelfCheck;
 import dev.anvilcraft.pullwires.power.link.PoleRuntimeSelfCheck;
 import dev.anvilcraft.pullwires.power.link.PowerLinkRuleSelfCheck;
+import dev.anvilcraft.pullwires.power.link.PrioritySliderSelfCheck;
 import dev.anvilcraft.pullwires.power.link.ReconnectPolicySelfCheck;
 import dev.anvilcraft.pullwires.power.link.RollingAverageSelfCheck;
 
@@ -30,6 +31,7 @@ public final class SelfChecks {
         failures += CrossDimensionSelfCheck.run();
         failures += PoleRangeRuleSelfCheck.run();
         failures += ReconnectPolicySelfCheck.run();
+        failures += PrioritySliderSelfCheck.run();
         failures += RollingAverageSelfCheck.run();
 
         if (failures > 0) {

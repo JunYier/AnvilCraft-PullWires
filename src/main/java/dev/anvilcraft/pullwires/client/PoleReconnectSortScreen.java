@@ -4,65 +4,61 @@ import dev.anvilcraft.pullwires.network.AdjustPriorityPacket;
 import dev.anvilcraft.pullwires.network.SetReconnectSortPacket;
 import dev.anvilcraft.pullwires.power.link.PoleConfig;
 import dev.anvilcraft.pullwires.power.link.PoleKey;
-import dev.anvilcraft.pullwires.power.link.PolePriority;
+import dev.anvilcraft.pullwires.power.link.PrioritySliderMath;
 import dev.anvilcraft.pullwires.power.link.ReconnectPolicy;
-import dev.anvilcraft.lib.v2.wheel.client.gui.component.WheelWidget;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.AbstractSliderButton;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * 一根输电杆专属的「重连申请排序」配置页。
+ * 一根输电杆专属的「重连申请排序 + 优先级」配置页。
  *
- * <h2>页面上的三件事</h2>
+ * <h2>页面上的四件事</h2>
  * <ol>
+ *   <li><b>优先级</b>：一个 0–15 的滑条，<b>松手时</b>才发一次增量 → {@link AdjustPriorityPacket}；</li>
  *   <li><b>首要因素</b>：一个按钮在「优先级 / 需求」之间切换 → {@code ReconnectPolicy.primary}；</li>
  *   <li><b>主因素方向</b>：一个按钮在升序 / 降序之间切换 → {@code primaryAscending}；</li>
  *   <li><b>副因素方向</b>：一个按钮在升序 / 降序之间切换 → {@code secondaryAscending}
- *       （副因素自动是「主因素之外的那一个」，所以没有第二个「谁是副因素」的按钮）；</li>
- *   <li><b>时间因素</b>：只显示、<b>没有开关</b>——{@code ReconnectPolicy.compare} 里它就是固定升序。</li>
+ *       （副因素自动是「主因素之外的那一个」，所以没有第二个「谁是副因素」的按钮）。</li>
  * </ol>
  *
- * <p><b>没有「排序来源」开关（V1.12.13 删除）</b>：页面上按下的任何一下都<b>直接写进这根杆自己</b>的
- * 排序设定，不存在「本杆覆盖 ⇄ 跟随存档默认」这个中间概念。存档级默认只在进世界补齐时，
- * 作为一份快照被复制给<b>尚未配置</b>的杆（{@code PowerInterconnectManager} 的每拍结算里，
- * 见 {@code WireLinkRegistry.backfillReconnectPolicies}）；已经配置过的杆一律跳过。</p>
+ * <p><b>时间因素</b>只显示、<b>没有开关</b>——{@code ReconnectPolicy.compare} 里它就是固定升序。</p>
  *
- * <h2>优先级轮盘（原「Ctrl + 滚轮」并入这里）</h2>
- * <p>页面中央的径向轮盘是 AnvilLib wheel 的 {@link WheelWidget}，16 个扇区就是 0–15。
- * 指向某个扇区、或滚动滚轮，都会把<b>选择</b>移过去；<b>左键点击盘面</b>才真正写下去。
- * 之所以不做成「滚到哪就改到哪」：轮盘本身会随鼠标方向不断改变选中扇区，
- * 那样光是移动鼠标就会把优先级刷成一片乱数。</p>
+ * <h2>为什么用滑条（V1.12.14）</h2>
+ * <p>V1.12.12–V1.12.13 这里放的是 AnvilLib 的径向轮盘（16 扇区 = 0–15）。
+ * 轮盘的「指向即选中」会让鼠标移动不断改选中扇区，必须先选再点一下才生效，交互绕；
+ * 现在换成一个整数滑条：拖动只移动滑块，<b>松手（{@code onRelease}）才提交一次</b>，
+ * 拖动过程中不会每帧发包。滑条本身没有采用本体的 {@code dev.dubhe.anvilcraft...Slider}——
+ * 它的 {@code getValue()} 会把比例再按 {@code 2^(v-1)} 做一次指数变换，并不适合 0–15 的线性整数，
+ * 因此用原版 {@link AbstractSliderButton}，映射规则抽成可脱离游戏断言的
+ * {@link PrioritySliderMath}。</p>
  *
  * <h2>没有第二份状态</h2>
- * <p>页面上显示的每一个数都实时读自 {@link ManualLinkClientState}——服务端同步下来的只读镜像。
- * 这里既不缓存「当前策略」，也不做乐观更新：写完只发一个包，等下一份 {@code SyncRegistryPacket}
- * 回来自然就对了。本类持有的字段只有 {@link #key}（这是哪根杆）与 {@link #parent}（从哪来）。</p>
+ * <p>页面上显示的优先级文字实时读自 {@link ManualLinkClientState}——服务端同步下来的只读镜像。
+ * 滑块位置会在不拖动时跟随镜像；写入只发一个包，<b>不做乐观更新</b>：
+ * 松手后等下一份 {@code SyncRegistryPacket} 回来，文字与滑块自然对齐。
+ * 本类持有的字段只有 {@link #key}（这是哪根杆）与 {@link #parent}（从哪来）。</p>
  */
 public class PoleReconnectSortScreen extends Screen {
-    /** 轮盘中心多大范围内算「死区」（不选中任何扇区）。 */
-    private static final int WHEEL_DEAD_ZONE = 30;
-    private static final float WHEEL_OUTER_SCALE = 0.26F;
     private static final int BUTTON_HEIGHT = 20;
     private static final int BUTTON_GAP = 4;
     private static final int MAX_BUTTON_ROW_WIDTH = 300;
+    private static final int MAX_SLIDER_WIDTH = 220;
+    private static final int LABEL_GAP = 4;
     private static final int TEXT_COLOR = 0xFFFFFFFF;
     private static final int HINT_COLOR = 0xFFA0A0A0;
 
     private final PoleKey key;
     private final @Nullable Screen parent;
 
-    private @Nullable WheelWidget wheel;
+    private @Nullable PrioritySlider prioritySlider;
     private @Nullable Button factorButton;
     private @Nullable Button primaryButton;
     private @Nullable Button secondaryButton;
-    private float wheelOuterRadius = 40.0F;
 
     public PoleReconnectSortScreen(PoleKey key, @Nullable Screen parent) {
         super(Component.translatable("screen.anvilcraft_pullwires.pole_sort.title"));
@@ -73,18 +69,12 @@ public class PoleReconnectSortScreen extends Screen {
     @Override
     protected void init() {
         int centerX = this.width / 2;
-        int centerY = this.height / 2;
 
-        float limit = Math.min(this.width, this.height) * WHEEL_OUTER_SCALE;
-        // 上下都要留位置：上面两行说明、下面一行按钮（V1.12.13 起只剩这一行）。
-        this.wheelOuterRadius = Math.max(40.0F, Math.min(limit, this.height / 2.0F - 40.0F));
-        float innerRadius = Math.max(20.0F, this.wheelOuterRadius * 0.45F);
-
-        this.wheel = new WheelWidget(
-            0, 0, this.width, this.height,
-            innerRadius, this.wheelOuterRadius,
-            prioritySections(), WHEEL_DEAD_ZONE
-        );
+        int sliderWidth = Math.min(MAX_SLIDER_WIDTH, this.width - 40);
+        int sliderY = this.height / 2 - 10;
+        this.prioritySlider = this.addRenderableWidget(new PrioritySlider(
+            centerX - sliderWidth / 2, sliderY, sliderWidth, BUTTON_HEIGHT
+        ));
 
         int rowWidth = Math.min(MAX_BUTTON_ROW_WIDTH, this.width - 20);
         int buttonWidth = (rowWidth - 2 * BUTTON_GAP) / 3;
@@ -106,21 +96,6 @@ public class PoleReconnectSortScreen extends Screen {
             .size(buttonWidth, BUTTON_HEIGHT)
             .pos(rowLeft + 2 * (buttonWidth + BUTTON_GAP), togglesY)
             .build());
-    }
-
-    /** 16 个扇区：数值 0–15，扇区里直接把数字画出来（否则整圈只有中心标题有字）。 */
-    private List<WheelWidget.RawSection> prioritySections() {
-        List<WheelWidget.RawSection> sections = new ArrayList<>(PolePriority.MAX - PolePriority.MIN + 1);
-        for (int value = PolePriority.MIN; value <= PolePriority.MAX; value++) {
-            Component label = Component.literal(String.valueOf(value));
-            sections.add(new WheelWidget.RawSection(
-                label,
-                (graphics, pose, sectionWidth, sectionHeight) -> graphics.drawCenteredString(
-                    this.font, label, 0, -this.font.lineHeight / 2, TEXT_COLOR
-                )
-            ));
-        }
-        return sections;
     }
 
     // ---------------------------------------------------------------- 读写
@@ -162,67 +137,19 @@ public class PoleReconnectSortScreen extends Screen {
         ));
     }
 
-    /**
-     * 把轮盘选中的优先级写下去。
-     *
-     * <p>发的是<b>增量</b>而不是绝对值：数值仍旧由服务端在权威配置上夹取，
-     * 客户端算出来的只是「相对镜像差多少」，镜像过期最多导致一次空操作，不会写出越界值。</p>
-     */
-    private void applyPriority(int value) {
-        int delta = value - this.config().priority();
+    /** 滑条松手时把镜像差多少发下去；真正的夹取仍由服务端在权威配置上做。 */
+    private void commitPriority(int target) {
+        int delta = PrioritySliderMath.deltaFor(target, this.config().priority());
         if (delta == 0) return;
         PacketDistributor.sendToServer(new AdjustPriorityPacket(this.key.pos(), delta));
-    }
-
-    // ---------------------------------------------------------------- 输入
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // 先让按钮拿到点击，再考虑轮盘——轮盘的 bounds 是整个屏幕，先问它会吞掉所有按钮。
-        if (super.mouseClicked(mouseX, mouseY, button)) return true;
-        if (button != 0 || this.wheel == null) return false;
-        if (!this.insideWheelRing(mouseX, mouseY)) return false;
-
-        int selected = this.wheel.getCurrentSectionIndex();
-        if (selected < 0) return false;
-        this.applyPriority(selected);
-        return true;
-    }
-
-    /**
-     * 滚轮只改变轮盘的<b>选择</b>，不直接写入。
-     *
-     * <p>这就是原「Ctrl + 滚轮」在页面里的落点：同一个手势，但现在作用在一个看得见的轮盘上，
-     * 并且要再点一下才算数。世界上那条滚轮通路已经删除，不存在第二套入口。</p>
-     */
-    @Override
-    public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (this.wheel != null && scrollY != 0) {
-            this.wheel.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-            return true;
-        }
-        return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-    }
-
-    /** 点是否落在轮盘的环带上（死区与盘外都不算）。 */
-    private boolean insideWheelRing(double mouseX, double mouseY) {
-        double dx = mouseX - this.width / 2.0;
-        double dy = mouseY - this.height / 2.0;
-        double distance = Math.sqrt(dx * dx + dy * dy);
-        return distance >= WHEEL_DEAD_ZONE && distance <= this.wheelOuterRadius;
     }
 
     // ---------------------------------------------------------------- 渲染
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
-        this.refreshButtons();
+        this.refreshWidgets();
         this.renderBackground(guiGraphics, mouseX, mouseY, partialTick);
-
-        if (this.wheel != null) {
-            // render 里会按鼠标方向更新选中扇区，所以必须每帧调用。
-            this.wheel.render(guiGraphics, mouseX, mouseY, partialTick);
-        }
         super.render(guiGraphics, mouseX, mouseY, partialTick);
 
         ReconnectPolicy policy = this.policy();
@@ -241,20 +168,42 @@ public class PoleReconnectSortScreen extends Screen {
             Component.translatable("screen.anvilcraft_pullwires.pole_sort.time"),
             this.width / 2, 36, HINT_COLOR
         );
+
+        if (this.prioritySlider != null) {
+            // 滑条自身的 message 显示镜像值；这一行是给它的可读标签。
+            guiGraphics.drawCenteredString(
+                this.font,
+                Component.translatable("screen.anvilcraft_pullwires.pole_sort.label.priority"),
+                this.prioritySlider.getX() + this.prioritySlider.getWidth() / 2,
+                this.prioritySlider.getY() - this.font.lineHeight - LABEL_GAP,
+                TEXT_COLOR
+            );
+        }
+        this.drawButtonLabel(guiGraphics, this.factorButton, "screen.anvilcraft_pullwires.pole_sort.label.factor");
+        this.drawButtonLabel(guiGraphics, this.primaryButton, "screen.anvilcraft_pullwires.pole_sort.label.primary");
+        this.drawButtonLabel(guiGraphics, this.secondaryButton, "screen.anvilcraft_pullwires.pole_sort.label.secondary");
+    }
+
+    /** 在按钮正上方画一行小标签；按钮自身继续显示当前取值。 */
+    private void drawButtonLabel(GuiGraphics guiGraphics, @Nullable Button button, String translationKey) {
+        if (button == null) return;
         guiGraphics.drawCenteredString(
             this.font,
-            Component.translatable(
-                "screen.anvilcraft_pullwires.pole_sort.priority",
-                Component.literal(String.valueOf(this.config().priority()))
-            ),
-            this.width / 2, 48, HINT_COLOR
+            Component.translatable(translationKey),
+            button.getX() + button.getWidth() / 2,
+            button.getY() - this.font.lineHeight - LABEL_GAP,
+            HINT_COLOR
         );
     }
 
-    /** 按钮文案跟着镜像走；三个开关始终可用——按下去就是直接改这根杆自己的设定。 */
-    private void refreshButtons() {
+    /** 按钮文案与滑条位置都跟着镜像走；三个开关始终可用——按下去就是直接改这根杆自己的设定。 */
+    private void refreshWidgets() {
         ReconnectPolicy policy = this.policy();
+        int priority = this.config().priority();
 
+        if (this.prioritySlider != null) {
+            this.prioritySlider.syncFromMirror(priority);
+        }
         if (this.factorButton != null) {
             this.factorButton.setMessage(Component.translatable(
                 "screen.anvilcraft_pullwires.pole_sort.factor",
@@ -288,5 +237,70 @@ public class PoleReconnectSortScreen extends Screen {
     @Override
     public void onClose() {
         if (this.minecraft != null) this.minecraft.setScreen(this.parent);
+    }
+
+    /**
+     * 0–15 的整数滑条。
+     *
+     * <p>拖动过程中 {@link #applyValue()} 什么都不做——只有 {@link #onRelease(double, double)}
+     * 才把「滑块目标值 − 镜像值」的增量发出去一次。页面上的文字始终读镜像，
+     * 因此滑条的位置状态只是输入过程中的临时位置，不是第二份权威数据。</p>
+     */
+    private final class PrioritySlider extends AbstractSliderButton {
+        /** 这一次按下是否归我们处理；松手后置回 false。 */
+        private boolean dragging;
+
+        private PrioritySlider(int x, int y, int width, int height) {
+            super(
+                x, y, width, height,
+                Component.empty(),
+                PrioritySliderMath.proportionOf(PoleReconnectSortScreen.this.config().priority())
+            );
+            this.updateMessage();
+        }
+
+        /** 滑块当前指向的整数优先级。 */
+        private int selectedPriority() {
+            return PrioritySliderMath.priorityAt(this.value);
+        }
+
+        /** 不拖动时跟随服务端镜像；标签无论如何都显示镜像值。 */
+        private void syncFromMirror(int priority) {
+            if (!this.dragging) {
+                double proportion = PrioritySliderMath.proportionOf(priority);
+                if (Math.abs(this.value - proportion) > 1.0E-6D) {
+                    this.value = proportion;
+                }
+            }
+            this.updateMessage();
+        }
+
+        @Override
+        protected void updateMessage() {
+            this.setMessage(Component.translatable(
+                "screen.anvilcraft_pullwires.pole_sort.priority.value",
+                Component.literal(String.valueOf(PoleReconnectSortScreen.this.config().priority()))
+            ));
+        }
+
+        @Override
+        protected void applyValue() {
+            // 拖动中不发包：只在松手时提交一次增量。
+        }
+
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            boolean handled = super.mouseClicked(mouseX, mouseY, button);
+            if (handled) this.dragging = true;
+            return handled;
+        }
+
+        @Override
+        public void onRelease(double mouseX, double mouseY) {
+            super.onRelease(mouseX, mouseY);
+            if (!this.dragging) return;
+            this.dragging = false;
+            PoleReconnectSortScreen.this.commitPriority(this.selectedPriority());
+        }
     }
 }

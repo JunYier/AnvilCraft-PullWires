@@ -11,9 +11,10 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
- * 客户端 → 服务端：滚动滚轮调整输电杆的结算优先级。
+ * 客户端 → 服务端：配置页优先级滑条松手时调整输电杆的结算优先级。
  *
- * <p>只传滚轮方向（±1），最终数值由服务端在权威数据上夹取，客户端不参与计算。</p>
+ * <p>只传<b>增量</b>（滑条目标值减客户端镜像值），最终数值由服务端在权威数据上夹取，
+ * 客户端不参与计算。</p>
  */
 public record AdjustPriorityPacket(BlockPos pos, int delta) implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<AdjustPriorityPacket> TYPE =

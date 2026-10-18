@@ -24,7 +24,7 @@ With one master and several slaves, the master's surplus is handed out by
 | Item | Value |
 | --- | --- |
 | Default | 7 |
-| Change | Hold the **Anvil Hammer**, hold the hotkey (default Left Ctrl) and **right-click** the pole, then pick a value on the wheel in its settings page: point at a section or scroll to move the selection, **left-click the wheel to confirm** |
+| Change | Hold the **Anvil Hammer**, hold the hotkey (default Left Ctrl) and **right-click** the pole, then drag the 0-15 **slider** in its settings page. The new value is sent **once, when you release** the mouse; dragging itself sends nothing |
 | Meaning | Higher numbers are served first |
 
 Besides priority, the settings page also holds that pole's **reconnect sorting** (below).

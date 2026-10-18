@@ -87,10 +87,14 @@ public class AddonLangHandler {
         provider.add("screen.anvilcraft_pullwires.pole_sort.primary.desc", "Primary: descending");
         provider.add("screen.anvilcraft_pullwires.pole_sort.secondary.asc", "Secondary: ascending");
         provider.add("screen.anvilcraft_pullwires.pole_sort.secondary.desc", "Secondary: descending");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.label.priority", "Priority");
         provider.add(
-            "screen.anvilcraft_pullwires.pole_sort.priority",
-            "Priority: %s (point at a wheel section or scroll to choose, then left-click the wheel)"
+            "screen.anvilcraft_pullwires.pole_sort.priority.value",
+            "%s"
         );
+        provider.add("screen.anvilcraft_pullwires.pole_sort.label.factor", "Primary factor");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.label.primary", "Primary direction");
+        provider.add("screen.anvilcraft_pullwires.pole_sort.label.secondary", "Secondary direction");
 
         provider.add("tooltip.anvilcraft_pullwires.grid_information.exchange", "Total exchanged: %s");
         provider.add("tooltip.anvilcraft_pullwires.link.header", "Pull Wires:");

@@ -28,10 +28,9 @@ import java.util.Optional;
  * <p>需求把锁定定义为<b>忽略外部红石信号造成的 {@code SWITCH} 切换</b>。
  * 也就是说锁定只影响红石，优先级任何时候都能改——两者互不干扰。</p>
  *
- * <h2>优先级从哪改（V1.12.12 起）</h2>
- * <p>原来的「按住 Ctrl 滚动滚轮」<b>已经并入配置页</b>：页面上那个径向轮盘就是它，
- * 页面的滚轮/指向负责选值、左键确认。世界上不再留第二条调整优先级的通路，
- * 但服务端的写入路径仍是这里的 {@link #adjustPriority}（客户端在页面上算出增量后发给它），
+ * <h2>优先级从哪改（V1.12.14 起）</h2>
+ * <p>原来的「按住 Ctrl 滚动滚轮」已经删除，优先级现在只存在于配置页的 0–15 滑条里：
+ * 拖动不写、松手才发一次增量。服务端的写入路径仍是这里的 {@link #adjustPriority}，
  * 因此「数值一律由服务端在权威数据上夹取」这条性质没有变。</p>
  */
 public class PoleHammerBehavior implements dev.dubhe.anvilcraft.api.hammer.IHammerChangeable {
@@ -40,13 +39,13 @@ public class PoleHammerBehavior implements dev.dubhe.anvilcraft.api.hammer.IHamm
     private PoleHammerBehavior() {
     }
 
-    // ------------------------------------------------------------------ 滚轮改优先级
+    // ------------------------------------------------------------------ 配置页滑条改优先级
 
     /**
      * 调整某根杆的优先级。
      *
      * @param clicked 玩家瞄准的任意一段坐标
-     * @param delta   滚轮方向，正数提高优先级
+     * @param delta   增量（滑条目标值减客户端镜像值），正数提高优先级
      */
     public static void adjustPriority(ServerPlayer player, BlockPos clicked, int delta) {
         if (delta == 0) return;
