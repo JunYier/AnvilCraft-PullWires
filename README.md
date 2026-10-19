@@ -1,6 +1,7 @@
 # 铁砧工艺：拉电线（AnvilCraft Pull Wires）
+本模组由作者借助DSH、VSCode与BlockBench开发。若有Bug或者建议，可通过[issue](https://github.com/JunYier/AnvilCraft-PullWires/issues)向作者反馈。
 
-[AnvilCraft](https://github.com/Anvil-Dev/AnvilCraft) 的附属模组。给本体的电力网络补上「拉电线」这件事：
+本模组为[AnvilCraft](https://github.com/Anvil-Dev/AnvilCraft) 的附属模组，目的在于为本体的电力网络补上「拉电线」这件事：
 两种新的输电杆、可配置的三档距离、带损耗与断路保护的跨电网结算，以及围绕它们的整套界面与提示。
 
 ![CI](https://github.com/JunYier/AnvilCraft-PullWires/actions/workflows/ci.yml/badge.svg)
@@ -57,8 +58,9 @@
 ## 安装
 
 1. 安装对应版本的 Minecraft + NeoForge；
-2. 把 AnvilCraft 与本模组的 jar 一起放进 `mods/`；
-3. 需要的可选依赖（Jade / JEI / 藿香）装上即可自动生效，不装也不影响。
+2. 本模组`.jar`文件可从[Release](https://github.com/JunYier/AnvilCraft-PullWires/releases)下载，或者在[CI](https://github.com/JunYier/AnvilCraft-PullWires/actions/workflows/ci.yml)中获取最新版本。
+3. 把 AnvilCraft 与本模组的 jar 一起放进 `mods/`文件夹；
+4. 需要的可选依赖（Jade / JEI / 藿香）装上即可自动生效，不装也不影响。
 
 ## 快速上手
 
