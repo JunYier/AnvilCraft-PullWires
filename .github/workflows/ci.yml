@@ -37,16 +37,6 @@ jobs:
           distribution: zulu
           java-version: ${{ steps.properties.outputs.java_version }}
 
-      - name: Read Versions
-        id: versions
-        uses: Gu-ZT/toml-reader-action@1.0.0
-        with:
-          file: gradle/libs.versions.toml
-          fields: |
-            versions.minecraft
-            versions.neoforge
-            versions.anvilcraft
-
       - name: make gradle wrapper executable
         if: ${{ runner.os != 'Windows' }}
         run: chmod +x ./gradlew
@@ -78,14 +68,15 @@ jobs:
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASS }}
         continue-on-error: true
 
-      - name: gametest
-        uses: Anvil-Dev/dedicated-server-launch-test@universal
-        continue-on-error: false
-        with:
-          mod_loader: neoforge
-          loader_version: ${{ steps.versions.outputs.versions_neoforge }}
-          mods: build/libs/${{ steps.properties.outputs.mod_id }}-neoforge-${{ steps.version.outputs.version }}.jar
-          maven-repos: |
-            https://server.cjsah.net:1002/maven/releases/
-          maven-mods: |
-            dev.dubhe:anvilcraft-neoforge-1.21.1:${{ steps.versions.outputs.versions_anvilcraft }}
+        - name: gametest
+          uses: Anvil-Dev/dedicated-server-launch-test@1.21.1-neoforge
+          continue-on-error: false
+          with:
+            # 与本体一致：@1.21.1-neoforge 这个 ref 内部已写死
+            # minecraft_version=1.21.1 / mod_loader=neoforge / loader_version=21.1.217，
+            # 因此这里只需要给模组本身，以及它依赖的 AnvilCraft（maven 坐标）。
+            mods: build/libs/${{ steps.properties.outputs.mod_id }}-neoforge-${{ steps.version.outputs.version }}.jar
+            maven-repos: |
+              https://server.cjsah.net:1002/maven/releases/
+            maven-mods: |
+              dev.dubhe:anvilcraft-neoforge-1.21.1:1.6.0+snapshot.2547
