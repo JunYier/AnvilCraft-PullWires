@@ -11,7 +11,9 @@
     "TransmissionPoleLockMixin"
   ],
   "client": [
-    "client.HudTooltipManagerMixin"
+    "client.HudTooltipManagerMixin",
+        "client.PowerGridSupportMixin",
+        "client.ModelSelectionBakeryMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -66,7 +66,7 @@ public class AddonBlocks {
                             .with(IPowerComponent.OVERLOAD, overload)
                             .with(RemoteTransmissionPoleBlock.SWITCH, powerSwitch)
                             .modelForState()
-                            .modelFile(provider.models().getExistingFile(poleModel(half, overload, powerSwitch)))
+                            .modelFile(provider.models().getExistingFile(poleModel("ultra_long_range_pole_head", half, overload, powerSwitch)))
                             .addModel();
                     }
                 }
@@ -138,10 +138,34 @@ public class AddonBlocks {
         return InventoryChangeTrigger.TriggerInstance.hasItems(ModBlocks.REMOTE_TRANSMISSION_POLE.get());
     }
 
-    /** 与本体远程输电桩一致的四段模型选择。 */
+    /** 与本体远程输电桩一致的四段模型选择（顶段沿用本体的那套头）。 */
     private static ResourceLocation poleModel(
         Vertical4PartHalf half, boolean overload, IPowerComponent.Switch powerSwitch
     ) {
+        return poleModel(null, half, overload, powerSwitch);
+    }
+
+    /**
+     * 同上，但顶段可以换成这根杆自己的头部模型。
+     *
+     * <p><b>本体的状态切换写法</b>（见 {@code remote_transmission_pole_top*}.json）是
+     * 「一个完整几何模型 + 两个只覆盖贴图的变体」：{@code ..._top} 是完整模型，
+     * {@code ..._top_off} 与 {@code ..._top_overload} 只是 {@code parent} 指向它、
+     * 再把 {@code head} 与 {@code particle} 两张贴图换成对应状态的那张。
+     * 因此这里**只需要按状态换顶段的模型名**，几何全部继承，不必复制三份模型。</p>
+     *
+     * @param headPrefix 顶段模型前缀（如 {@code ultra_long_range_pole_head}）；
+     *                   {@code null} 表示顶段继续用本体的 {@code remote_transmission_pole_top*}
+     */
+    private static ResourceLocation poleModel(
+        String headPrefix, Vertical4PartHalf half, boolean overload, IPowerComponent.Switch powerSwitch
+    ) {
+        if (headPrefix != null && half == Vertical4PartHalf.TOP) {
+            String suffix = powerSwitch == IPowerComponent.Switch.OFF
+                ? "_off"
+                : overload ? "_overload" : "";
+            return AnvilCraftPullWires.of("block/" + headPrefix + suffix);
+        }
         String name = switch (half) {
             case BOTTOM -> "base";
             case TOP -> powerSwitch == IPowerComponent.Switch.OFF

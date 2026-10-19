@@ -32,14 +32,14 @@ public final class InterconnectSettlementSelfCheck {
             new int[] {100, -30}, List.of(link(0, 0, 1, 7, 1))
         );
         expect("单跳应成交", one.size() == 1);
-        expect("单跳量取从端缺口", one.getFirst().amount() == 30);
+        expect("单跳量取从端缺口", one.getFirst().sent() == 30);
         expect("方向必须是主端→从端", one.getFirst().fromNode() == 0 && one.getFirst().toNode() == 1);
 
         // --- 主端富余不足：只给得起多少给多少 --------------------------------
         List<InterconnectSettlement.Transfer> limited = InterconnectSettlement.settle(
             new int[] {10, -50}, List.of(link(0, 0, 1, 7, 1))
         );
-        expect("主端富余不足时按上限给", limited.size() == 1 && limited.getFirst().amount() == 10);
+        expect("主端富余不足时按上限给", limited.size() == 1 && limited.getFirst().sent() == 10);
 
         // --- ★ 多跳中继：中转站自己没有任何用电器 ----------------------------
         // 0（富余 100）→ 1（自有 0，纯中继）→ 2（缺口 50）
@@ -106,7 +106,7 @@ public final class InterconnectSettlementSelfCheck {
             List<InterconnectSettlement.Transfer> result = InterconnectSettlement.settle(
                 new int[] {100, -20 + injected}, List.of(link(0, 0, 1, 7, 1))
             );
-            injected = result.isEmpty() ? 0 : result.getFirst().amount();
+            injected = result.isEmpty() ? 0 : result.getFirst().sent();
             if (!result.isEmpty()) bookedTicks++;
         }
         expect("账面基准恰好隔一拍成交一次（6 拍 3 次）", bookedTicks == 3);
@@ -119,6 +119,49 @@ public final class InterconnectSettlementSelfCheck {
         }
         expect("自有基准每拍都成交（6 拍 6 次）", ownTicks == 6);
 
+        // --- ★ 损耗向上折算（V1.12.15）----------------------------------------
+        // 语义：结算给出的量是「从端希望收到多少」；主端要付出 need/(1-loss) 才能让从端真的收到 need。
+        expect("无损时送出量等于需求", InterconnectSettlement.grossUp(256, 0.0) == 256);
+        expect("20% 损耗：要送 256 需付出 320", InterconnectSettlement.grossUp(256, 0.2) == 320);
+        expect("向上取整而不是四舍五入", InterconnectSettlement.grossUp(1, 0.2) == 2);
+        expect("全损时不付出", InterconnectSettlement.grossUp(100, 1.0) == 0);
+        expect("非正需求返回 0", InterconnectSettlement.grossUp(0, 0.2) == 0);
+
+        // 关键不变量：按折算后的送出量真正送达，必须覆盖住需求（否则从端永远差一截 → 主端被慢慢抽干）
+        for (double loss : new double[] {0.05, 0.1, 0.2, 0.25, 0.5}) {
+            for (int need : new int[] {1, 7, 64, 256, 1000}) {
+                int sent = InterconnectSettlement.grossUp(need, loss);
+                int delivered = InterconnectSettlement.deliveredAmount(sent, loss);
+                expect("折算往返覆盖需求 loss=" + loss + " need=" + need, delivered >= need);
+            }
+        }
+        // 反例守护：旧做法（把需求直接当送出量）在 20% 损耗下只能送到 205，覆盖不了 256——
+        // 这正是「主端电很多却十几秒后被断路」的根因。
+        expect("旧做法确实覆盖不了需求", InterconnectSettlement.deliveredAmount(256, 0.2) == 205);
+        // --- ★ 损耗结算（V1.12.16）：主端付出与从端收到必须分开记账 ---------------
+        // 从端需要 256，损耗 20%：主端应付 320，从端应收到 256。
+        List<InterconnectSettlement.Transfer> lossy = InterconnectSettlement.settle(
+            new int[] {320, -256}, List.of(lossyLink(0, 0, 1, 7, 1, 0.2))
+        );
+        expect("有损耗时主端付出向上折算", amountOf(lossy, 0) == 320);
+        expect("有损耗时从端恰好收到需求", receivedOf(lossy, 0) == 256);
+
+        // 主端只有 256（付不起 320）：付 256、送达 205，且**不会**因此把它算成亏电。
+        List<InterconnectSettlement.Transfer> short1 = InterconnectSettlement.settle(
+            new int[] {256, -256}, List.of(lossyLink(0, 0, 1, 7, 1, 0.2))
+        );
+        expect("付不起时按额度封顶", amountOf(short1, 0) == 256);
+        expect("付不起时送达按损耗折算", receivedOf(short1, 0) == 205);
+        expect("付不起也不会超支", amountOf(short1, 0) <= 256);
+
+        // 多跳 + 损耗：A →(20%) B →(20%) C，C 需要 100，则 B 需收到 125、A 需付出 157。
+        List<InterconnectSettlement.Transfer> chain = InterconnectSettlement.settle(
+            new int[] {1000, 0, -100},
+            List.of(lossyLink(0, 0, 1, 7, 1, 0.2), lossyLink(1, 1, 2, 7, 2, 0.2))
+        );
+        expect("多跳损耗：第一段付出 157", amountOf(chain, 0) == 157);
+        expect("多跳损耗：第一段送达 125", receivedOf(chain, 0) == 125);
+        expect("多跳损耗：第二段送达 100", receivedOf(chain, 1) == 100);
         if (failures == 0) {
             System.out.println("[pullwires] InterconnectSettlement ok (" + assertions + " assertions)");
         } else {
@@ -128,13 +171,26 @@ public final class InterconnectSettlementSelfCheck {
     }
 
     private static InterconnectSettlement.Link link(int index, int master, int slave, int priority, long createdAt) {
-        return new InterconnectSettlement.Link(index, master, slave, priority, createdAt);
+        return new InterconnectSettlement.Link(index, master, slave, priority, createdAt, 0.0);
     }
 
+    private static InterconnectSettlement.Link lossyLink(
+        int index, int master, int slave, int priority, long createdAt, double loss
+    ) {
+        return new InterconnectSettlement.Link(index, master, slave, priority, createdAt, loss);
+    }
     /** 按调用方给的稳定下标取这一条的成交量。 */
+    /** 按链路的稳定下标取这一条的送达量。 */
+    private static int receivedOf(List<InterconnectSettlement.Transfer> transfers, int linkIndex) {
+        for (InterconnectSettlement.Transfer transfer : transfers) {
+            if (transfer.linkIndex() == linkIndex) return transfer.received();
+        }
+        return 0;
+    }
+
     private static int amountOf(List<InterconnectSettlement.Transfer> transfers, int linkIndex) {
         for (InterconnectSettlement.Transfer transfer : transfers) {
-            if (transfer.linkIndex() == linkIndex) return transfer.amount();
+            if (transfer.linkIndex() == linkIndex) return transfer.sent();
         }
         return 0;
     }

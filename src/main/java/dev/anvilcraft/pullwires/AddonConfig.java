@@ -45,16 +45,22 @@ public class AddonConfig {
         // 换算规则见 PoleRangeRule。
         // 距离一律取「长边长度」max(|dx|,|dy|,|dz|)，不是直线距离：自动组网与手动连接共用这一个标量，
         // 同量纲才能保证 R_supply ≤ R_auto ≤ R_manual。
+        //
+        // 默认 3x / 4x 的依据（V1.12.15）：本体自己的自动组网是**包围盒相交**——
+        // getShape() 半宽 R+0.5，两盒相交条件 |d| < 2R+1 = 17，所以两根本体杆之间的
+        // **最大整数自动连接距离是 16 格**（R=8 时）。若我们的 autoR 只给 1.5x=12，
+        // 就会出现「本体自己连得上的两根杆，在本模组里反而连不上」的倒退。3x=24 高于 16，
+        // 保证不会比本体更严格；manualR 取 4x=32，仍严格大于 autoR。
 
         @SerializedName("Transmission Pole")
         @Comment("Ranges of AnvilCraft's own Transmission Pole, as multiples of its own supply range R")
         @CollapsibleObject
-        public BodyPoleRanges transmissionPole = BodyPoleRanges.of(1.5, 2.5);
+        public BodyPoleRanges transmissionPole = BodyPoleRanges.of(3.0, 4.0);
 
         @SerializedName("Remote Transmission Pole")
         @Comment("Ranges of AnvilCraft's own Remote Transmission Pole, as multiples of its own supply range R")
         @CollapsibleObject
-        public BodyPoleRanges remoteTransmissionPole = BodyPoleRanges.of(1.5, 2.5);
+        public BodyPoleRanges remoteTransmissionPole = BodyPoleRanges.of(3.0, 4.0);
 
         @SerializedName("Ultra Long Range Pole")
         @Comment(
@@ -122,12 +128,12 @@ public class AddonConfig {
          * 本体那两种杆的范围：只放本模组负责的两个倍数。
          *
          * <p>供电范围 R 仍由本体配置提供（我们无法把自己的界面项指过去），
-         * 因此倍数的基准就是<b>该杆型自己的 R</b>，默认 1.5x 即 8 → 12，2x 即 16。</p>
+         * 因此倍数的基准就是<b>该杆型自己的 R</b>，默认 3x 即 24，4x 即 32。</p>
          */
         public static class BodyPoleRanges {
             @Comment("Auto-connect range as a multiple of this pole's own supply range R (1.0-2.0)")
             @BoundedDiscrete(min = 1.0, max = 2.0)
-            public double autoConnectMultiplier = 1.5;
+            public double autoConnectMultiplier = 3.0;
 
             @Comment(
                 """
@@ -136,7 +142,7 @@ public class AddonConfig {
                 """
             )
             @BoundedDiscrete(min = 1.0, max = 3.0)
-            public double manualConnectMultiplier = 2.0;
+            public double manualConnectMultiplier = 4.0;
 
             static BodyPoleRanges of(double autoConnectMultiplier, double manualConnectMultiplier) {
                 BodyPoleRanges ranges = new BodyPoleRanges();

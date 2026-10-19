@@ -7,7 +7,9 @@ import dev.anvilcraft.pullwires.power.link.LinkDefinition;
 import dev.anvilcraft.pullwires.power.link.LinkState;
 import dev.anvilcraft.pullwires.power.link.PoleKey;
 import dev.anvilcraft.pullwires.power.link.PowerLinkRule;
+import dev.dubhe.anvilcraft.client.init.ModRenderTypes;
 import dev.dubhe.anvilcraft.client.renderer.Line;
+import dev.dubhe.anvilcraft.client.renderer.RenderState;
 import dev.dubhe.anvilcraft.item.DiskItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -195,6 +197,30 @@ public class ManualLinkClientEvents {
         };
         return 0xFF000000 | (rgb & 0xFFFFFF);
     }
+    /**
+     * 光晕那一趟：只在本体的光晕渲染阶段被调用（见 {@code PowerGridSupportMixin}）。
+     *
+     * <p>顶点用 {@code ModRenderTypes.LINE_BLOOM} 写进**已经绑定好的**光晕帧缓冲，
+     * 这样才能与本体的输电杆线一样发光。普通管线那趟仍然照常画，所以这一趟失败也不影响可见性。</p>
+     */
+    public static void renderBloomedLines(
+        PoseStack pose, MultiBufferSource.BufferSource buffers, Vec3 camera
+    ) {
+        if (!AnvilCraftPullWiresClient.CONFIG.graphics.renderManualLinkLines) return;
+        ClientLevel level = Minecraft.getInstance().level;
+        if (level == null) return;
+        List<LinkDefinition> links = ManualLinkClientState.links();
+        if (links.isEmpty()) return;
+        VertexConsumer consumer = buffers.getBuffer(ModRenderTypes.LINE_BLOOM);
+        for (LinkDefinition definition : links) {
+            if (!ClientLinkVisibility.drawsLine(level, definition)) continue;
+            Vec3 from = Vec3.atCenterOf(definition.master().pos());
+            Vec3 to = Vec3.atCenterOf(definition.slave().pos());
+            new Line(from, to, (float) from.distanceTo(to))
+                .render(pose, consumer, camera, colorFor(ManualLinkClientState.stateOf(definition.id())));
+        }
+        buffers.endBatch();
+    }
     @SubscribeEvent
     public static void onRenderLevel(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) return;
@@ -210,6 +236,10 @@ public class ManualLinkClientEvents {
         PoseStack pose = event.getPoseStack();
         MultiBufferSource.BufferSource buffers = minecraft.renderBuffers().bufferSource();
         Vec3 camera = event.getCamera().getPosition();
+        // 这一趟**永远用普通管线**：它负责「线看得见」。
+        // 光晕是**另一趟**，挂在 PowerGridSupport#renderEnhancedTransmitterLine 的 TAIL 上
+        // （见 PowerGridSupportMixin）——因为 LINE_BLOOM 只有在那个渲染阶段、那个帧缓冲下才有意义。
+        // 之前我把这两趟混成一趟、按配置替换 RenderType，结果顶点写进了未绑定的光晕缓冲、线整条消失。
         VertexConsumer consumer = buffers.getBuffer(RenderType.LINES);
         for (LinkDefinition definition : links) {
             // 跨维度链路与「端点涉及跨维度杆」的链路都不画线，判定见 ClientLinkVisibility。

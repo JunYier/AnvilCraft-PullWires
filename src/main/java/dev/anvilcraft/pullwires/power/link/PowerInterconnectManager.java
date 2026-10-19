@@ -133,12 +133,17 @@ public final class PowerInterconnectManager {
                 continue;
             }
 
+            // 损耗随链路交给结算：结算内部用「主端付出 / 从端收到」两个数记账，
+            // 因此这里不再自己折算，也不会出现「第二套额度基准」。
+            boolean acrossDimensions =
+                !definition.master().dimension().equals(definition.slave().dimension());
             links.add(new InterconnectSettlement.Link(
                 links.size(),
                 nodeId(masterGrid, nodeIds, nodes, balances),
                 nodeId(slaveGrid, nodeIds, nodes, balances),
                 registry.config(definition.master()).priority(),
-                definition.createdAt()
+                definition.createdAt(),
+                acrossDimensions ? AnvilCraftPullWires.CONFIG.transmission.crossDimensionalPoleLoss : 0.0
             ));
             settled.add(definition);
         }
@@ -155,21 +160,22 @@ public final class PowerInterconnectManager {
 
             List<InterconnectSettlement.Transfer> transfers =
                 InterconnectSettlement.settle(balanceArray, links);
-            double crossDimensionLoss = AnvilCraftPullWires.CONFIG.transmission.crossDimensionalPoleLoss;
             for (InterconnectSettlement.Transfer transfer : transfers) {
                 int index = transfer.linkIndex();
                 LinkDefinition settledLink = settled.get(index);
-                // 主端「送出的量」与从端「收到的量」是两个数：跨维度时损耗让后者更小。
-                int sent = transfer.amount();
-                // 损耗只作用于「真的跨了维度」的那条链路：两端同维度时不存在传送这回事。
-                int received = settledLink.master().dimension().equals(settledLink.slave().dimension())
-                    ? sent
-                    : InterconnectSettlement.deliveredAmount(sent, crossDimensionLoss);
+                PowerGrid masterGrid = nodes.get(transfer.fromNode());
+                PowerGrid slaveGrid = nodes.get(transfer.toNode());
+                if (masterGrid == null || slaveGrid == null) continue;
 
-                // ⑤ 记进二元账：主端这一拍确实多花了 sent，从端确实多得了 received。
-                // 注意两边不必相等——差额就是被耗散掉的功率，天经地义地不属于任何一方。
-                deltas.merge(nodes.get(transfer.fromNode()), -sent, Integer::sum);
-                deltas.merge(nodes.get(transfer.toNode()), received, Integer::sum);
+                // 结算已经把损耗算进去了：主端付出 sent、从端收到 received，差额被耗散。
+                // 这里**只做记账**，不再折算、不再另开额度表——那正是 V1.12.15 闪烁的成因。
+                int sent = transfer.sent();
+                int received = transfer.received();
+                if (sent <= 0) continue;
+
+                // ⑤ 记进二元账。
+                deltas.merge(masterGrid, -sent, Integer::sum);
+                deltas.merge(slaveGrid, received, Integer::sum);
 
                 // ③ 每对主从的监控：窗口按「送出量」衰减，断路排序也用它。
                 registry.linkRuntime(settledLink.id()).push(sent, received);

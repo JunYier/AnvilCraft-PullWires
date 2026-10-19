@@ -23,6 +23,9 @@ atlassian-ide-plugin.xml
 !.vscode/launch.json
 !.vscode/extensions.json
 
+# Bin
+bin/
+
 # Compiled class file
 *.class
 

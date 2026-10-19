@@ -49,16 +49,24 @@ public final class InterconnectSettlement {
      * @param nodeSlave  从端所在网络的编号
      * @param priority   主端杆的结算优先级，<b>数值越小越慷慨</b>，从端会先向它申请
      * @param createdAt  链路建立序号，越小越早
+     * @param loss       这条链路的损耗系数（两端同维度恒为 0）。结算内部按它把
+     *                   「从端需要收到多少」折算成「主端要付出多少」
      */
-    public record Link(int index, int nodeMaster, int nodeSlave, int priority, long createdAt) {
+    public record Link(int index, int nodeMaster, int nodeSlave, int priority, long createdAt, double loss) {
     }
 
     /**
      * 一条成交的传输。
      *
-     * @param amount 恒为正，方向恒为 {@code fromNode（主端）→ toNode（从端）}
+     * <p><b>两个数都必须带出去</b>：主端扣的是 {@code sent}、从端加的是 {@code received}，
+     * 差额就是被耗散掉的功率。<b>不能</b>让调用方再自己折算一次——
+     * 那样就会出现「结算以为主端付得起、而调用方按另一套基数再算一遍」的分歧，
+     * 表现为隔一拍成交一次的闪烁（V1.12.16 修的正是这个）。</p>
+     *
+     * @param sent     主端实际付出的量，恒为正
+     * @param received 从端实际收到的量，恒为正且 ≤ {@code sent}
      */
-    public record Transfer(int linkIndex, int fromNode, int toNode, int amount) {
+    public record Transfer(int linkIndex, int fromNode, int toNode, int sent, int received) {
     }
 
     /** 需求透传的迭代上限：链路数 + 1 已经足够覆盖任何 DAG；成环时靠它兜底，不会死循环。 */
@@ -96,18 +104,18 @@ public final class InterconnectSettlement {
 
         int maxPasses = links.size() + MAX_PASSES_SLACK;
         for (int pass = 0; pass < maxPasses; pass++) {
-            // 汇总「每个节点要替下游转发的量」：它的每条出边下游各需要多少。
-            long[] downstream = new long[nodeCount];
+            // 汇总「每个节点要替下游<b>付出</b>多少」：下游需要收到 need[slave]，
+            // 但这笔电要过一条有损耗的边，主端必须付出 grossUp(need, loss) 才能让下游收到那么多。
+            long[] downstreamCost = new long[nodeCount];
             for (Link link : links) {
                 int master = link.nodeMaster();
                 int slave = link.nodeSlave();
                 if (master == slave) continue;
-                downstream[master] += need[slave];
+                downstreamCost[master] += grossUp(need[slave], link.loss());
             }
             boolean changed = false;
             for (int i = 0; i < nodeCount; i++) {
-                long candidate = Math.max(0, -(long) own[i]) + downstream[i];
-                candidate = Math.min(NEED_CAP, candidate);
+                long candidate = Math.min(NEED_CAP, Math.max(0, -(long) own[i]) + downstreamCost[i]);
                 if (candidate > need[i]) {
                     need[i] = (int) candidate;
                     changed = true;
@@ -146,7 +154,9 @@ public final class InterconnectSettlement {
             avail[i] = (int) Math.min(Integer.MAX_VALUE, Math.max(0, own[i]));
         }
         int[] received = new int[nodeCount];
-        int[] grant = new int[linkCount];
+        // 每条链路的两个结果都要各自记账：主端付出多少（含损耗）、从端收到多少。
+        int[] grantSent = new int[linkCount];
+        int[] grantReceived = new int[linkCount];
 
         int maxPasses = linkCount + MAX_PASSES_SLACK;
         for (int pass = 0; pass < maxPasses; pass++) {
@@ -157,17 +167,24 @@ public final class InterconnectSettlement {
                 int slave = link.nodeSlave();
                 // 两端本来就在同一座电网里就没有输送的意义。
                 if (master == slave) continue;
+                // 主端的可支配额度是「送达单位」，但这里要算的是它得付出多少，
+                // 所以先把从端还差的量按损耗折算成代价，再和额度比较。
+                int wantDelivered = Math.max(0, need[slave] - received[slave]);
+                if (wantDelivered <= 0) continue;
+                int wantCost = grossUp(wantDelivered, link.loss());
+                int give = Math.min(avail[master], wantCost);
+                if (give <= grantSent[i]) continue;
 
-                int want = Math.max(0, need[slave] - received[slave]);
-                if (want <= 0) continue;
-                int give = Math.min(avail[master], want);
-                if (give <= grant[i]) continue;
+                int newDelivered = Math.min(wantDelivered, deliveredAmount(give, link.loss()));
+                if (newDelivered < grantReceived[i]) continue; // 送达量不该回退
 
-                int delta = give - grant[i];
-                grant[i] = give;
-                avail[master] -= delta;
-                avail[slave] += delta;
-                received[slave] += delta;
+                int addedCost = give - grantSent[i];
+                int addedDelivered = newDelivered - grantReceived[i];
+                grantSent[i] = give;
+                grantReceived[i] = newDelivered;
+                avail[master] -= addedCost;
+                avail[slave] += addedDelivered;
+                received[slave] += addedDelivered;
                 changed = true;
             }
             if (!changed) break;
@@ -175,10 +192,12 @@ public final class InterconnectSettlement {
 
         List<Transfer> transfers = new ArrayList<>();
         for (int i = 0; i < linkCount; i++) {
-            if (grant[i] <= 0) continue;
+            if (grantSent[i] <= 0) continue;
             Link link = links.get(i);
             if (link.nodeMaster() == link.nodeSlave()) continue;
-            transfers.add(new Transfer(i, link.nodeMaster(), link.nodeSlave(), grant[i]));
+            transfers.add(new Transfer(
+                i, link.nodeMaster(), link.nodeSlave(), grantSent[i], grantReceived[i]
+            ));
         }
         return transfers;
     }
@@ -203,5 +222,36 @@ public final class InterconnectSettlement {
         double kept = 1.0 - Math.min(loss, 1.0);
         int delivered = (int) Math.round(amount * kept);
         return Math.max(0, Math.min(amount, delivered));
+    }
+
+    /**
+     * 跨维度链路的<b>送出量</b>：要让从端收到 {@code need}，主端需要付出多少（含损耗的向上折算）。
+     *
+     * <h2>为什么必须向上折算，而不是在送达侧扣减（V1.12.15）</h2>
+     * <p>结算给出的量在语义上是「<b>从端希望收到多少</b>」。如果直接把它当成送出量再去扣损耗，
+     * 从端永远只能拿到 {@code need × (1 − loss)}：</p>
+     * <pre>
+     * 从端要 C，主端付 C，从端到手 0.8C → 还差 0.2C
+     * 下一拍从端要 1.2C，主端付 1.2C，到手 0.96C → 还差 0.24C
+     * ...稳态要从端拿到 C，主端就得付出 C / 0.8 = 1.25C
+     * </pre>
+     * <p>也就是说主端每拍实际支出比结算以为的多 25%。一旦它的富余不足这个数，账面就会持续转负，
+     * 最终触发亏电断路把链路挂起——表现就是「明明主端电很多，链路却在十几秒后自己断了」。</p>
+     *
+     * <p>向上折算把账算在正确的一端：<b>主端付 1.25C，从端恰好收到 C</b>。
+     * 主端付不起时由调用方按真实可支配额度夹住，再按 {@link #deliveredAmount} 折算送达量——
+     * 于是「付不起」表现为「从端欠压」，而不是「主端账面变负」。</p>
+     *
+     * @param need 从端希望收到的量，非正数一律返回 0
+     * @param loss 损耗系数，0 表示无损
+     */
+    public static int grossUp(int need, double loss) {
+        if (need <= 0) return 0;
+        if (!(loss > 0.0)) return need; // 同时挡住 NaN
+        double kept = 1.0 - Math.min(loss, 1.0);
+        // 全损（loss ≥ 1）：送多少都到不了，主端不该为此付出。
+        if (kept <= 0.0) return 0;
+        long wanted = (long) Math.ceil(need / kept);
+        return (int) Math.min(Integer.MAX_VALUE / 4, wanted);
     }
 }

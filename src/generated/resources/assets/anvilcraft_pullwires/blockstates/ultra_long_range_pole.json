@@ -25,16 +25,16 @@
       "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
     },
     "half=top,overload=false,switch=off": {
-      "model": "anvilcraft_pullwires:block/remote_transmission_pole_top_off"
+      "model": "anvilcraft_pullwires:block/ultra_long_range_pole_head_off"
     },
     "half=top,overload=false,switch=on": {
-      "model": "anvilcraft_pullwires:block/remote_transmission_pole_top"
+      "model": "anvilcraft_pullwires:block/ultra_long_range_pole_head"
     },
     "half=top,overload=true,switch=off": {
-      "model": "anvilcraft_pullwires:block/remote_transmission_pole_top_off"
+      "model": "anvilcraft_pullwires:block/ultra_long_range_pole_head_off"
     },
     "half=top,overload=true,switch=on": {
-      "model": "anvilcraft_pullwires:block/remote_transmission_pole_top_overload"
+      "model": "anvilcraft_pullwires:block/ultra_long_range_pole_head_overload"
     },
     "half=upper,overload=false,switch=off": {
       "model": "anvilcraft_pullwires:block/remote_transmission_pole_mid"
