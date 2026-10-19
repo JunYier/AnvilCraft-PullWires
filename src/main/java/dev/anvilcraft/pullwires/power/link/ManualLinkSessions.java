@@ -101,10 +101,10 @@ public final class ManualLinkSessions {
      *
      * <p>锚点用「顶段方块的上表面中心」而不是方块中心：{@code master.pos()} 是顶段，
      * 方块中心比杆顶低半格，四格杆上这个偏差更明显——这正是 Boss 条读数与粒子束两端对不上的来源。
-     * 客户端那边同一个锚点由 {@code ManualLinkAim.masterHead} 给出，两边必须一致。</p>
+     * 锚点公式统一在 {@link PoleAnchor}，客户端与服务端共用同一处，避免两边各写一遍后悄悄分叉。</p>
      */
     private static double distanceToMaster(ServerPlayer player, PoleKey master) {
-        Vec3 head = Vec3.atBottomCenterOf(master.pos()).add(0.0, 1.0, 0.0);
+        Vec3 head = PoleAnchor.masterHead(master.pos());
         Vec3 eyes = player.getEyePosition();
         // 长边长度而不是直线距离：手动连接范围必须与自动连接范围同量纲，见 ManualLinkRule。
         return PowerLinkRule.boxDistance(head.x, head.y, head.z, eyes.x, eyes.y, eyes.z);

@@ -1,72 +1,85 @@
 ---
 navigation:
-  title: "Cross dimensional"
+  title: "Cross dimension"
   icon: "anvilcraft_pullwires:cross_dimensional_pole"
-# Item binding: hold W (Ageratum's key.ageratum.more_info) on this item to jump here.
+# Item binding: press W while holding this item to open this page.
 guide:
   items:
     - anvilcraft_pullwires:cross_dimensional_pole
 ---
 
-# Cross dimensional transfer
+# Cross dimension
 
-The Cross Dimensional Pole is the only pole in this addon with **genuinely new behaviour**:
-it supplies nothing, never auto-connects, and acts purely as a link endpoint
-with **no dimension and no distance limit**.
+The Cross Dimensional Pole is the addon's second pole. It **supplies nothing and never groups automatically**; it is only a link endpoint, and it is **not limited by distance or dimension**.
 
-It extends AnvilCraft's Remote Transmission Pole, so it looks and places exactly the same.
+Its shape reuses AnvilCraft's four-part Remote Transmission Pole, so placing it works exactly like any other pole.
 
-## Three "never"
+## What it is
 
-| Item | Behaviour |
+| Property | Behaviour |
 | --- | --- |
-| Supply range | 0 — it is only an endpoint |
-| Auto-connect | Never joins a grid automatically, at any distance |
-| Power line rendering | **Never draws a line**; portal particles at the top show the live link |
+| Supply range | 0: it is only an endpoint (unless it physically touches a grid) |
+| Auto-connect | 0: it never joins a grid automatically at any distance |
+| Manual connect | unlimited |
+| Cross dimension | allowed |
 
-## When may a link cross dimensions
+So it neither generates nor seeks power by itself — it is one end of a wire.
 
-::: warning
-Only when **both ends are Cross Dimensional Poles**.
-If either end is an ordinary pole the attempt is refused — otherwise one cross dimensional pole
-would be a free pass for anything.
-:::
+## How to cross dimensions
 
-Linking works exactly like anywhere else:
+<warning>
+A cross-dimension link is only allowed when **both ends are Cross Dimensional Poles**. A single Cross Dimensional Pole paired with an ordinary pole is rejected — otherwise one pole would hand out free cross-dimension transport.
+</warning>
 
-1. Right-click a Cross Dimensional Pole in the Overworld to bind the master
-2. Walk through a portal and right-click (or place) one in the Nether
-3. The link is created and portal particles appear at both tops
+Steps:
 
-Two Cross Dimensional Poles in the **same** dimension can of course link as well,
-also with **no distance limit**.
+1. Right-click a Cross Dimensional Pole in the Overworld to store the master (a disk is recommended)
+2. Step through the portal and right-click another Cross Dimensional Pole there, or place a new one
+3. The link is created and both pole tops start emitting portal particles
 
-## Single chunk loading
+Two Cross Dimensional Poles in the same dimension obviously link as well, again with no distance limit.
 
-The far end of a cross dimensional link lives in another dimension, and that side unloads when nobody
-is there — leaving the link "not connected". So a placed Cross Dimensional Pole keeps
-**exactly the single chunk it occupies** loaded, reusing AnvilCraft's Overseer loading
-(level 0 = one chunk, no random tick).
+## Power lines
 
-- Each pole holds **one** chunk; breaking the pole releases it
-- Can be turned off with `crossDimensionalPoleForceload`
-- Chunk unload and server shutdown do **not** release it — otherwise it would never load again after a restart
+Like automatically grouped poles, a **same-dimension** link draws a power line. Only a link that **actually crosses dimensions** draws no line; it is shown by the portal particles at the pole tops instead.
 
-## Transfer loss
+## Single-chunk loading
 
-`crossDimensionalPoleLoss` (0.0-1.0, default 0.0): the slave receives `amount * (1 - loss)`
-and the difference simply disappears; it is not returned to the master.
-It applies **only when the two ends are in different dimensions** — two cross dimensional poles
-in the same dimension are not "teleporting" anything.
+The far end of a cross-dimension link lives in another dimension and would unload when nobody is there, leaving the link "Inactive". So a placed Cross Dimensional Pole force-loads **its own single chunk** (AnvilCraft's loading machinery, level 0 = exactly one chunk, no random ticks).
+
+- One chunk per pole, released when the pole is broken
+- Can be disabled with `crossDimensionalPoleForceload`
+- Chunk unload or server shutdown does **not** release it, otherwise it would never load itself again after a restart
+
+## Loss
+
+`crossDimensionalPoleLoss` (0.0 – 1.0, default 0.0) applies only to links that **really cross dimensions**.
+
+The loss is paid by the **master**, not deducted from the delivery:
+
+```text
+To deliver N, the master pays N / (1 − loss)
+```
+
+With loss 0.2 and a slave needing 256, the master pays 320 and the slave receives exactly 256.
+
+If the master cannot afford that, it sends what it has and the slave receives less — the slave goes under-powered instead of the master's balance going negative.
+
+<info>
+With loss 0 the master pays exactly what the slave receives. A same-dimension link has no loss at all.
+</info>
 
 ## Portal particles
 
-While the link is **active**, both pole tops emit portal particles: they appear at random positions
-around the pole head and fly straight into it (the vanilla Nether portal particle motion).
-Suspend or break the link and they stop immediately.
+While a link is **Active**, both pole tops emit portal particles: they appear around the head and travel into it. They stop immediately when the link is suspended or disconnected.
 
-## Also
+## Appearance
 
-- Priority, locking, deficit breaker, reconnect and switch restart work exactly as for ordinary poles
-- `A → B` and `B → A` cannot double the power: settlement is one-way and locally conservative,
-  and a slave that was just filled ends at exactly 0, so it can never send anything back in the same tick
+It has a single head appearance and **no switch or overload texture variants** — it takes no part in power supply, so there is no "overload" state.
+
+The core of the head is rendered with the **End Portal** effect: it shows a deep starfield that does not slide with the surface, unlike the pole's regular textures.
+
+## Notes
+
+- Priority, locking, cut-off, reconnection and switch restart behave exactly like ordinary poles
+- `A → B` and `B → A` together do not double the power: settlement is one-way and locally conservative

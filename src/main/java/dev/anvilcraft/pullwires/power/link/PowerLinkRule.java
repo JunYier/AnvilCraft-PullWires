@@ -1,7 +1,6 @@
 package dev.anvilcraft.pullwires.power.link;
 
 import java.util.Collection;
-import javax.annotation.Nullable;
 
 /**
  * 输电杆并网判定的纯逻辑部分，不依赖任何游戏类型，便于单独验证。

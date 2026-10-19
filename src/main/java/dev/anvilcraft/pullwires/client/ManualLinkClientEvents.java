@@ -9,7 +9,6 @@ import dev.anvilcraft.pullwires.power.link.PoleKey;
 import dev.anvilcraft.pullwires.power.link.PowerLinkRule;
 import dev.dubhe.anvilcraft.client.init.ModRenderTypes;
 import dev.dubhe.anvilcraft.client.renderer.Line;
-import dev.dubhe.anvilcraft.client.renderer.RenderState;
 import dev.dubhe.anvilcraft.item.DiskItem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
@@ -54,7 +53,6 @@ public class ManualLinkClientEvents {
     private static final double PORTAL_RADIUS_MAX = 3.0;
     private static final double PORTAL_Y_MIN = -0.5;
     private static final double PORTAL_Y_MAX = 2.0;
-
 
     /**
      * 待连接期间把避雷针粒子从主端头部引到「方块放置预览轮廓」的头部。

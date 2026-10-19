@@ -1,6 +1,5 @@
 package dev.anvilcraft.pullwires.power.link;
 
-import dev.anvilcraft.pullwires.AnvilCraftPullWires;
 import dev.dubhe.anvilcraft.api.power.ConnectivityChecker;
 import dev.dubhe.anvilcraft.api.power.IPowerComponent;
 import dev.dubhe.anvilcraft.api.power.PowerComponentType;

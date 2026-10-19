@@ -9,7 +9,6 @@ import dev.anvilcraft.pullwires.power.link.PoleKey;
 import dev.anvilcraft.pullwires.power.link.PolePriority;
 import dev.anvilcraft.pullwires.power.link.ReconnectPolicy;
 import dev.anvilcraft.pullwires.power.link.WireLinkRegistry;
-import net.minecraft.core.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.HashMap;
@@ -49,7 +48,6 @@ public final class ManualLinkClientState {
 
     private ManualLinkClientState() {
     }
-
 
     public static List<LinkDefinition> links() {
         return links;

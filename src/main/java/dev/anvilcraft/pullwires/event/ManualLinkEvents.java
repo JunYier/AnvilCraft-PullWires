@@ -21,7 +21,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
@@ -55,7 +54,6 @@ public class ManualLinkEvents {
         // 两条路都在 onPolePlaced 里取（见 LinkBinding#carrierOf）。
         ManualLinkSessions.onPolePlaced(player, level, event.getPos());
     }
-
 
     /**
      * 右键电线杆：绑定 / 粘贴 / 解除绑定。
@@ -129,8 +127,6 @@ public class ManualLinkEvents {
         }
         return message;
     }
-
-
 
     /** 进服务器时推一份链路列表，否则客户端要等到下一次链路变化才知道该画哪些线。 */
     @SubscribeEvent

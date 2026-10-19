@@ -7,9 +7,7 @@ import dev.dubhe.anvilcraft.block.TransmissionPoleBlock;
 import dev.dubhe.anvilcraft.block.state.Vertical3PartHalf;
 import dev.dubhe.anvilcraft.block.state.Vertical4PartHalf;
 import dev.dubhe.anvilcraft.init.block.ModBlocks;
-import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -45,7 +43,6 @@ public enum PoleKind {
         return null;
     }
 
-
     // ---------------------------------------------------------------- 取值入口
 
     /**
@@ -72,16 +69,6 @@ public enum PoleKind {
     /** 该种类的手动连接范围。 */
     public static int manualConnectRange(@Nullable PoleKind kind) {
         return ranges(kind).manualConnectRange();
-    }
-
-    /** 某坐标上那根杆的自动连接范围。 */
-    public static int autoConnectRangeAt(@Nullable Level level, BlockPos pos) {
-        return autoConnectRange(level == null ? null : of(level.getBlockState(pos)));
-    }
-
-    /** 某坐标上那根杆的手动连接范围。 */
-    public static int manualConnectRangeAt(@Nullable Level level, BlockPos pos) {
-        return manualConnectRange(level == null ? null : of(level.getBlockState(pos)));
     }
 
     /**
@@ -141,15 +128,9 @@ public enum PoleKind {
         return kind == null ? 0 : kind.height();
     }
 
-
     /** 从元件推种类（只有方块实体才带方块状态）。 */
     public static @Nullable PoleKind ofComponent(Object component) {
         return component instanceof BlockEntity entity ? of(entity.getBlockState()) : null;
-    }
-
-    /** 手持某物品时应当使用的手动连接范围（引导带与放置判定共用）。 */
-    public static int manualConnectRangeOfItem(ItemStack stack) {
-        return manualConnectRange(kindOfItem(stack));
     }
 
     /** 该物品是不是本模组认得的电线杆（四种都算）。 */
@@ -173,13 +154,4 @@ public enum PoleKind {
         return false;
     }
 
-    /**
-     * 该种类是否由本模组自己配置供电范围（本体那两种杆取自本体配置）。
-     *
-     * <p>注意：<b>不要</b>再用它去分流玩法行为或提示内容——
-     * 「四种杆一视同仁」已经是本模组的既定策略（见 §5.3），这里剩下的用途只有查配置来源。</p>
-     */
-    public boolean isAddonOwned() {
-        return this == ULTRA_LONG_RANGE || this == CROSS_DIMENSIONAL;
-    }
 }

@@ -1,8 +1,9 @@
-name: CI for AnvilCraft_Fullwires
+name: CI for AnvilCraft Pull Wires
 on:
   workflow_dispatch:
   push:
     branches:
+        - main
       - releases/**
       - dev/**
     paths:

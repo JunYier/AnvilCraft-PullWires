@@ -1,14 +1,11 @@
 package dev.anvilcraft.pullwires.power.link;
 
 import com.mojang.serialization.Codec;
-import dev.anvilcraft.pullwires.network.SyncLinkStatsPacket;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 import dev.anvilcraft.pullwires.AnvilCraftPullWires;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.UUIDUtil;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.NbtOps;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
@@ -74,9 +71,6 @@ public class WireLinkRegistry extends SavedData {
 
     /** 临时：每条链路的状态。 */
     private final Map<UUID, LinkState> linkStates = new HashMap<>();
-
-    /** 临时：每根杆的统计快照，每拍重建，随同步包推给客户端。 */
-    private final Map<PoleKey, SyncLinkStatsPacket.Entry> poleStats = new HashMap<>();
 
     /** 持久：链路建立序号的单调计数器。 */
     private long linkSequence;
@@ -304,22 +298,6 @@ public class WireLinkRegistry extends SavedData {
         if (dirty || !affected.isEmpty()) this.setDirty();
     }
 
-    /** 每拍由调度器整体替换一次，客户端 tooltip 读它。 */
-    public void setPoleStats(List<SyncLinkStatsPacket.Entry> entries) {
-        this.poleStats.clear();
-        for (SyncLinkStatsPacket.Entry entry : entries) {
-            this.poleStats.put(entry.pole(), entry);
-        }
-    }
-
-    public SyncLinkStatsPacket.Entry poleStat(PoleKey key) {
-        return this.poleStats.get(key);
-    }
-
-    public List<SyncLinkStatsPacket.Entry> poleStats() {
-        return List.copyOf(this.poleStats.values());
-    }
-
     // ---------------------------------------------------------------- 持久化
 
     @Override
@@ -339,8 +317,8 @@ public class WireLinkRegistry extends SavedData {
         this.links.clear();
         this.linkStates.clear();
         this.linkRuntimes.clear();
-        this.poleStats.clear();
-        this.linkSequence = tag.getLong(LINK_SEQUENCE_KEY);        this.poleRuntimes.clear();
+        this.linkSequence = tag.getLong(LINK_SEQUENCE_KEY);
+        this.poleRuntimes.clear();
 
         for (Tag element : tag.getList(POLES_KEY, Tag.TAG_COMPOUND)) {
             decodeLenient(PoleEntry.CODEC, element).ifPresent(entry -> this.poleConfigs.put(entry.key(), entry.config()));

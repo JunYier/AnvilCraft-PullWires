@@ -104,7 +104,7 @@ public class AddonBlocks {
                             .with(IPowerComponent.OVERLOAD, overload)
                             .with(RemoteTransmissionPoleBlock.SWITCH, powerSwitch)
                             .modelForState()
-                            .modelFile(provider.models().getExistingFile(poleModel(half, overload, powerSwitch)))
+                            .modelFile(provider.models().getExistingFile(poleModelFixedHead("cross_dimensional_pole_head", half, overload, powerSwitch)))
                             .addModel();
                     }
                 }
@@ -138,6 +138,20 @@ public class AddonBlocks {
         return InventoryChangeTrigger.TriggerInstance.hasItems(ModBlocks.REMOTE_TRANSMISSION_POLE.get());
     }
 
+    /**
+     * 顶段固定为单模型的四段选择（{@code cross_dimensional_pole_head} 就是这套）。
+     *
+     * <p>跨维度杆没有 {@code switch}/{@code overload} 的贴图变体——它只有一个头部模型，
+     * 因此顶段的四种状态组合全部指向同一个模型，其余三段照旧用本体素材。</p>
+     */
+    private static ResourceLocation poleModelFixedHead(
+        String headModel, Vertical4PartHalf half, boolean overload, IPowerComponent.Switch powerSwitch
+    ) {
+        if (half == Vertical4PartHalf.TOP) {
+            return AnvilCraftPullWires.of("block/" + headModel);
+        }
+        return poleModel(null, half, overload, powerSwitch);
+    }
     /** 与本体远程输电桩一致的四段模型选择（顶段沿用本体的那套头）。 */
     private static ResourceLocation poleModel(
         Vertical4PartHalf half, boolean overload, IPowerComponent.Switch powerSwitch

@@ -1,7 +1,7 @@
 package dev.anvilcraft.pullwires.client;
 
+import dev.anvilcraft.pullwires.power.link.PoleAnchor;
 import dev.anvilcraft.pullwires.power.link.PoleKind;
-import dev.anvilcraft.pullwires.power.link.PowerLinkRule;
 import dev.anvilcraft.pullwires.util.PoleResolver;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -11,29 +11,23 @@ import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * 手动连接的取点：主端头部、放置预览头部、以及两者之间的距离。
+ * 手动连接的取点：放置预览头部、瞄准杆顶、以及两者之间的锚点。
  *
- * <p>粒子束与 HUD 都用这里，保证「看到的距离」就是「用来判定的距离」。</p>
+ * <p>粒子束与 HUD 都用这里，保证「看到的落点」就是「服务端判定用的落点」。
+ * 锚点公式本身在 {@link PoleAnchor}（服务端也要用，不能放在客户端类里）。</p>
  */
 public final class ManualLinkAim {
-    /**
-     * 主端头部：顶段方块的上表面中心。
-     *
-     * <p>{@code PoleKey.pos()} 存的一律是<b>顶段</b>（所有构造入口都先过
-     * {@code PoleResolver.resolveTop}），所以这里只需 +1 格就能落到杆顶，
-     * <b>不需要知道整根杆是三格还是四格</b>。三格与四格杆共用这一个函数。</p>
-     */
-    private static final double MASTER_HEAD_OFFSET = 1.0;
-
     private ManualLinkAim() {
     }
 
+    /** 任意坐标上方 {@code heightOffset} 格处的锚点；见 {@link PoleAnchor#headOf}。 */
     public static Vec3 headOf(BlockPos pos, double heightOffset) {
-        return Vec3.atBottomCenterOf(pos).add(0.0, heightOffset, 0.0);
+        return PoleAnchor.headOf(pos, heightOffset);
     }
 
-    public static Vec3 masterHead(BlockPos master) {
-        return headOf(master, MASTER_HEAD_OFFSET);
+    /** 顶段方块的杆顶；见 {@link PoleAnchor#masterHead}。 */
+    public static Vec3 masterHead(BlockPos topSegment) {
+        return PoleAnchor.masterHead(topSegment);
     }
 
     /**
@@ -77,7 +71,7 @@ public final class ManualLinkAim {
      * 于是粒子束会偏出整整一格，看起来就像「对杆顶的判断没生效」。</p>
      *
      * <p>这里直接对着瞄准的杆取顶：任意一段 → {@link PoleResolver#resolveTop} → 顶段上表面。
-     * 由于{@code resolveTop} 已经把中段/底段归到顶段，<b>不需要知道杆是三格还是四格</b>。</p>
+     * 由于 {@code resolveTop} 已经把中段/底段归到顶段，<b>不需要知道杆是三格还是四格</b>。</p>
      */
     public static @Nullable Vec3 aimedPoleHead(Minecraft minecraft) {
         if (!(minecraft.hitResult instanceof BlockHitResult hit)) return null;
@@ -85,27 +79,5 @@ public final class ManualLinkAim {
         if (minecraft.level == null) return null;
         BlockPos top = PoleResolver.resolveTop(minecraft.level, hit.getBlockPos());
         return top == null ? null : masterHead(top);
-    }
-
-    /**
-     * 当前应当显示、也用于判定的距离。
-     *
-     * <p>有放置预览时量到预览头部（与最终放置校验同一个基准）；没有预览时退化为玩家眼睛到主端头部，
-     * 这样 HUD 在瞄准空气时也有数可读。</p>
-     *
-     * <p>量的是 {@link PowerLinkRule#boxDistance}（三轴分量的最大者），<b>不是</b>直线距离——
-     * 必须与服务端的放行判定以及自动组网用同一个标量，否则会出现
-     * 「条显示超了、放下却成功」或者「条还说在范围内、放下被拒」。</p>
-     */
-    public static double distance(Minecraft minecraft, BlockPos master) {
-        Vec3 from = masterHead(master);
-        Vec3 to = placementHead(minecraft);
-        if (to != null) return boxDistance(from, to);
-        if (minecraft.player == null) return 0.0;
-        return boxDistance(from, minecraft.player.getEyePosition());
-    }
-
-    private static double boxDistance(Vec3 first, Vec3 second) {
-        return PowerLinkRule.boxDistance(first.x, first.y, first.z, second.x, second.y, second.z);
     }
 }

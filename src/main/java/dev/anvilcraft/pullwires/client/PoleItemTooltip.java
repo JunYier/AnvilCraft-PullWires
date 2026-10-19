@@ -166,12 +166,12 @@ public final class PoleItemTooltip {
         }
     }
 
-    /** 「按住 \[Ctrl\] 查看绑定细节」——左 Ctrl 是本模组自己的约定。 */
+    /** 「按住 [左 Ctrl] 查看绑定细节」——键名走语言键，不要写字面量。 */
     private static void appendHoldCtrlHint(RenderTooltipEvent.GatherComponents event) {
         event.getTooltipElements().add(Either.left(
             Component.translatable(
                 "tooltip.anvilcraft_pullwires.item.hold_ctrl",
-                Component.literal("Ctrl").withStyle(ChatFormatting.WHITE)
+                Component.translatable("tooltip.anvilcraft_pullwires.item.key_ctrl").withStyle(ChatFormatting.WHITE)
             ).withStyle(ChatFormatting.DARK_GRAY)
         ));
     }

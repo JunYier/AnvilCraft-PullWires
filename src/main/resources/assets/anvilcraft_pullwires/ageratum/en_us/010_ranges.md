@@ -2,7 +2,7 @@
 navigation:
   title: "Ranges"
   icon: "anvilcraft_pullwires:ultra_long_range_pole"
-# Item binding: hold W on the Ultra Long Range Pole to jump here (Ageratum shows the hint itself).
+# Item binding: press W while holding the Ultra Long Range Pole to open this page.
 guide:
   items:
     - anvilcraft_pullwires:ultra_long_range_pole
@@ -10,45 +10,53 @@ guide:
 
 # Ranges
 
-Every pole has three distances, and they mean completely different things:
+Every pole has three different distances, and they mean completely different things.
 
-| Range | What it decides |
+| Range | Decides |
 | --- | --- |
-| **Supply range R_supply** | Whether generators, consumers and storage can join this pole's grid |
-| **Auto-connect range R_auto** | Whether this pole automatically joins the same grid as other poles |
-| **Manual range R_manual** | How far a binding link may reach (the one this addon adds) |
+| **Supply range** | Whether generators, consumers and storage join the grid this pole belongs to |
+| **Auto-connect range** | Whether two poles join the **same grid automatically** |
+| **Manual connect range** | How far a bound link may reach |
 
-They must satisfy `R_supply <= R_auto <= R_manual`.
+They must satisfy `supply ≤ auto-connect ≤ manual connect`, otherwise you get the odd case of "connected but not powered".
 
-## Per pole type
+## How distance is measured
 
-Ranges are **per pole type**, matching AnvilCraft's own approach:
+All three ranges use the **long side**: `max(|dx|, |dy|, |dz|)`.
 
-| Pole | Supply | Auto-connect | Manual |
+Two poles at `(0, 0, 0)` and `(12, 12, 0)` are therefore **12** apart, not 16.97.
+
+<info>
+This keeps diagonal placement from being punished. Vanilla grid grouping uses box intersection, which gets stricter on diagonals; this addon uses one plain rule instead.
+</info>
+
+## Values per pole
+
+| Pole | Supply | Auto-connect | Manual connect |
 | --- | --- | --- | --- |
-| AnvilCraft Transmission Pole | its own config (default 8) | 1.5x → 12 | 2x → 16 |
-| AnvilCraft Remote Transmission Pole | its own config (default 16) | 1.5x → 24 | 2x → 32 |
-| Ultra Long Range Pole | 2 | 32x → 256 | 64x → 512 |
-| Cross Dimensional Pole | 0 (supplies nothing) | 0 (never auto-connects) | no distance limit |
+| AnvilCraft Transmission Pole | 8 (its own R) | 24 (3×) | 32 (4×) |
+| AnvilCraft Remote Transmission Pole | 16 (its own R) | 48 (3×) | 64 (4×) |
+| Ultra Long Range Pole | 2 | 128 (16× the Transmission Pole R) | 256 (32×) |
+| Cross Dimensional Pole | 0 (no supply) | 0 (never groups) | unlimited |
 
-The multiplier base is **AnvilCraft's R**: AnvilCraft's own two poles use their own R,
-while this addon's two poles use the Transmission Pole's R.
-The last column shows real block counts with R at its default (8 / 16).
+The AnvilCraft pole numbers assume the **default R** (8 and 16). Changing the vanilla R changes both the auto-connect and the manual connect ranges.
 
-## Why multipliers instead of block counts
+## Why multiples instead of block counts
 
-AnvilCraft's R is **player editable**. If this addon stored fixed block counts, raising R would make
-the supply range exceed the auto-connect range, and **already placed poles in old saves would error out**.
+The vanilla R is **configurable**. If this addon hardcoded block counts, raising R would make the supply range larger than the auto-connect range — a corrupt configuration that even breaks poles already placed in old saves.
 
-With multipliers the nesting is structural: no matter how R changes, the relation holds.
-The two multipliers are also independently adjustable; if one ends up below the other,
-it is clamped on read instead of crashing.
+With multiples the nesting is structural: no matter how R changes, the relation holds.
 
-::: warning
-Raising AnvilCraft's R scales **everything**, including the Ultra Long Range Pole's reach.
-:::
+The Ultra Long Range Pole also uses multiples for auto-connect and manual connect (16× / 32×), but its **supply range is fixed at 2** — it is nearly purely a long-distance relay.
+
+## Placement hint
+
+Holding one of the addon's poles, if the aimed spot would fall inside an existing pole's **auto-connect range**, a green `><` hint appears, meaning "placing here joins that grid".
 
 ## Where to configure
 
-Under `config/anvilcraft_pullwires-common.toml`, group `Transmission`, one collapsible block per pole type.
-Changes apply immediately, no restart needed.
+`config/anvilcraft_pullwires-common.toml`, group `Transmission`, one collapsible block per pole type.
+
+<warning>
+Code defaults are only written when the config file is **created**. If you already have a config file from an older version, edit it manually or delete it so it is regenerated — otherwise the old values stay in effect.
+</warning>

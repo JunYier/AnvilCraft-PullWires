@@ -9,7 +9,6 @@ import dev.anvilcraft.pullwires.util.PoleResolver;
 import dev.dubhe.anvilcraft.api.tooltip.providers.ITooltipProvider;
 import dev.dubhe.anvilcraft.util.UnitUtil;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -188,7 +187,6 @@ public final class PoleTooltipLines {
         }
         return line.withStyle(ChatFormatting.GRAY);
     }
-
 
     /**
      * 与本体一致：按住 shift 显示原始数值（kW），否则允许换算到 MW。

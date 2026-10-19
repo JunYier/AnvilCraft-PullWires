@@ -1,54 +1,62 @@
 ---
 navigation:
-  title: "Commands & UI"
+  title: "Commands"
   icon: "minecraft:compass"
 ---
 
-# Commands and UI
+# Commands
 
 ## `/wires`
 
-| Subcommand | Permission | Purpose |
+| Subcommand | Permission | Effect |
 | --- | --- | --- |
-| `guide` | player | Open this guide |
-| `list` | anyone | List every link and its state |
-| `link <A> <B>` | OP | Create A → B directly |
-| `unlink <A> <B>` | OP | Remove the link between those two poles |
-| `clear` | OP | Warn that this is destructive |
-| `clear confirm` | OP | Actually clear every link |
+| `guide` | player | Opens this guide |
+| `list` | player | Lists every link and its state |
+| `link A B` | OP | Creates A → B directly |
+| `unlink A B` | OP | Removes links between the two poles |
+| `clear` | OP | Warns that this is destructive |
+| `clear confirm` | OP | Actually clears every link |
 
-Coordinates may point at **any segment** of a pole; the command finds the top itself.
-`link` / `unlink` are for troubleshooting — normally you use binding links.
+Coordinates may point at **any part** of a pole; the command finds the top segment itself.
+
+`link` / `unlink` are troubleshooting tools — normal play should use bound links.
 
 ## `/wires display`
 
-A client-side command that toggles the on-screen link list:
+A client-side command that toggles the on-screen connection list:
 
-```text
-/wires display          # toggle
-/wires display true     # always on
-/wires display false    # hidden
-```
+| Usage | Effect |
+| --- | --- |
+| `/wires display` | Toggle |
+| `/wires display true` | Always shown |
+| `/wires display false` | Hidden |
 
-The list updates live and shows both endpoints plus a state colour.
-While enabled it also draws particle beams along same-dimension links.
+Each row shows one link: a state marker, the master's dimension and coordinates, the slave's dimension and coordinates, and this tick's transfer. A cross-dimension link shows "sent → delivered (after loss)".
 
-## State colours
+Position, maximum row count and scale are all configurable in the client config.
+
+## States
 
 | State | Meaning |
 | --- | --- |
-| **Active** | Both ends online, transferring |
-| **Not connected** | One end is unloaded or outside a grid; recovers on its own |
-| **Suspended** | Cut by the deficit breaker, waiting to reconnect |
-| **Awaiting approval** | The slave asked to reconnect; the master decides |
+| **Active** | Both ends online, transferring normally |
+| **Inactive** | One end is offline or not in a grid; reconnects automatically |
+| **Suspended** | Cut off by the under-voltage breaker, waiting for a reconnect request |
+| **Pending** | The slave has requested reconnection; awaiting the master's decision |
 
-Line colours and state icons are configurable under the client `Graphics & Rendering` group.
+The colours of all four states are configurable in the client config group `Graphics & Rendering`.
 
-## Where to configure
+## Config files
 
-| File | Contents |
+| File | Content |
 | --- | --- |
-| `anvilcraft_pullwires-common.toml` | Ranges, cross dimensional settings, settlement, linking switches |
-| `anvilcraft_pullwires-client.toml` | Line colours, placement hint, list position and scale, particles |
+| `anvilcraft_pullwires-common.toml` | Three ranges, cross dimension, settlement and reconnection, link toggles |
+| `anvilcraft_pullwires-client.toml` | Line colours, placement hint, connection list, particles and UI |
 
-Every config entry has a description; hover it in the config screen.
+Every entry in the config screen has a description; hover it to read.
+
+## Integrations
+
+- **Jade**: shows this addon's link info when looking at a pole
+- **JEI**: both poles have an info page describing rules that do not fit in the recipe
+- **Ageratum**: this very guide — reopen it any time with `/wires guide`

@@ -131,17 +131,17 @@ public class AddonConfig {
          * 因此倍数的基准就是<b>该杆型自己的 R</b>，默认 3x 即 24，4x 即 32。</p>
          */
         public static class BodyPoleRanges {
-            @Comment("Auto-connect range as a multiple of this pole's own supply range R (1.0-2.0)")
-            @BoundedDiscrete(min = 1.0, max = 2.0)
+            @Comment("Auto-connect range as a multiple of this pole's own supply range R (1.0-4.0)")
+            @BoundedDiscrete(min = 1.0, max = 4.0)
             public double autoConnectMultiplier = 3.0;
 
             @Comment(
                 """
-                Manual connect range as a multiple of this pole's own supply range R (1.0-3.0)
+                Manual connect range as a multiple of this pole's own supply range R (1.0-8.0)
                 Values below the auto-connect multiplier are raised to it, so R_auto <= R_manual always holds
                 """
             )
-            @BoundedDiscrete(min = 1.0, max = 3.0)
+            @BoundedDiscrete(min = 1.0, max = 8.0)
             public double manualConnectMultiplier = 4.0;
 
             static BodyPoleRanges of(double autoConnectMultiplier, double manualConnectMultiplier) {

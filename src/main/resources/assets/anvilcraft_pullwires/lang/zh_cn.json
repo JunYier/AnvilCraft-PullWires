@@ -59,6 +59,7 @@
   "tooltip.anvilcraft_pullwires.item.ranges": "三档范围：",
   "itemGroup.anvilcraft_pullwires.addon_items": "铁砧工艺：拉电线",
   "tooltip.anvilcraft_pullwires.item.hold_ctrl": "按住 [%s] 查看绑定细节",
+  "tooltip.anvilcraft_pullwires.item.key_ctrl": "左 Ctrl",
   "tooltip.anvilcraft_pullwires.item.supply": "供电范围：%s 格",
   "tooltip.anvilcraft_pullwires.item.auto": "自动组网范围：%s 格",
   "tooltip.anvilcraft_pullwires.item.manual": "手动连接范围：%s 格",

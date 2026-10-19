@@ -464,8 +464,6 @@ public final class PowerInterconnectManager {
                 delta < 0 ? -delta : 0, delta > 0 ? delta : 0
             ));
         }
-        registry.setPoleStats(stats);
-
         // 每对主从的本拍转移量也一起发下去：常驻连接列表要按条显示，
         // 而按杆汇总的 Entry 无法回答「这条链路本拍走了多少」。
         List<SyncLinkStatsPacket.StateEntry> states = new ArrayList<>();

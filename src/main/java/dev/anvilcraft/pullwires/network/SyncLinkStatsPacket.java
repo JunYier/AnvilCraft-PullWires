@@ -62,7 +62,6 @@ public record SyncLinkStatsPacket(CompoundTag data) implements CustomPacketPaylo
         ).apply(instance, Entry::new));
     }
 
-
     /**
      * 单条链路的运行期状态。
      *

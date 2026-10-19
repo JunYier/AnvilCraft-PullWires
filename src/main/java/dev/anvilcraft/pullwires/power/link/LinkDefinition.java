@@ -36,15 +36,4 @@ public record LinkDefinition(UUID id, PoleKey master, PoleKey slave, long create
         return this.master.equals(key) || this.slave.equals(key);
     }
 
-    /** 返回这条链路相对给定端点的另一端；端点不属于该链路时返回 {@code null}。 */
-    public PoleKey opposite(PoleKey key) {
-        if (this.master.equals(key)) return this.slave;
-        if (this.slave.equals(key)) return this.master;
-        return null;
-    }
-
-    /** 是否与另一条链路同向重叠（同为主端、同为从端时才算重复）。 */
-    public boolean sameDirectionAs(LinkDefinition other) {
-        return this.master.equals(other.master) && this.slave.equals(other.slave);
-    }
 }

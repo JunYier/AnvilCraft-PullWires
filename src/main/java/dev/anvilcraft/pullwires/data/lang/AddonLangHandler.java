@@ -105,6 +105,7 @@ public class AddonLangHandler {
         provider.add("tooltip.anvilcraft_pullwires.link.priority", "Priority: %s");
         provider.add("tooltip.anvilcraft_pullwires.locked", "Locked");
         provider.add("tooltip.anvilcraft_pullwires.item.hold_ctrl", "Hold [%s] for binding details");
+        provider.add("tooltip.anvilcraft_pullwires.item.key_ctrl", "Ctrl");
         provider.add("tooltip.anvilcraft_pullwires.item.ranges", "Ranges:");
         provider.add("tooltip.anvilcraft_pullwires.item.supply", "Supply range: %s blocks");
         provider.add("tooltip.anvilcraft_pullwires.item.auto", "Auto-connect range: %s blocks");
