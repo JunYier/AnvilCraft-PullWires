@@ -17,7 +17,7 @@ publishing {
     }
     repositories {
         def MAVEN_URL = System.getenv("MAVEN_URL")
-        if (MAVEN_URL != null) {
+        if (MAVEN_URL != null && !MAVEN_URL.isEmpty()) {
             maven {
                 url MAVEN_URL
                 credentials {

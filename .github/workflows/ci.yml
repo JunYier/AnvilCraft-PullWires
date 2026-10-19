@@ -70,7 +70,7 @@ jobs:
           path: build/libs/${{ steps.properties.outputs.mod_id }}-neoforge-${{ steps.version.outputs.version }}.jar
 
       - name: Publish to maven
-        if: ${{ steps.properties.outputs.upload }}
+        if: ${{ steps.properties.outputs.upload == 'true' }}
         run: ./gradlew publish
         env:
           MAVEN_URL: ${{ secrets.MAVEN_URL }}
