@@ -1,10 +1,23 @@
+<div align="center" style="align-items: center">
+
 # 铁砧工艺：拉电线（AnvilCraft Pull Wires）
 本模组由作者借助DSH、VSCode与BlockBench开发。若有Bug或者建议，可通过[issue](https://github.com/JunYier/AnvilCraft-PullWires/issues)向作者反馈。
 
-本模组为[AnvilCraft](https://github.com/Anvil-Dev/AnvilCraft) 的附属模组，目的在于为本体的电力网络补上「拉电线」这件事：
-两种新的输电杆、可配置的三档距离、带损耗与断路保护的跨电网结算，以及围绕它们的整套界面与提示。
-
 ![CI](https://github.com/JunYier/AnvilCraft-PullWires/actions/workflows/ci.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/JunYier/AnvilCraft-PullWires)
+
+
+![Java21](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/built-with/java21_vector.svg)
+![NeoForge](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/supported/neoforge_vector.svg)
+
+![AnvilLib](https://cdn.jsdelivr.net/npm/@gugle/devins-badges-plus/assets/cozy/mc/anvillib_vector.svg)
+
+![Unsupported Fabric](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/unsupported/fabric_vector.svg)
+![Unsupported Forge](https://cdn.jsdelivr.net/npm/@intergrav/devins-badges@3/assets/cozy/unsupported/forge_vector.svg)
+
+本模组为[AnvilCraft](https://github.com/Anvil-Dev/AnvilCraft) 的附属模组，目的在于为本体的电力网络补上「拉电线」相关：
+两种新的输电杆、可配置的三档距离、带损耗与断路保护的跨电网结算，以及围绕它们的整套界面与提示。
+</div>
 
 ## 特性
 
